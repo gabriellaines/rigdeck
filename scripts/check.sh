@@ -49,7 +49,8 @@ ok "package installs with all QML/icon files"
 rd="$tmp/venv/bin/rigdeck"
 [ "$("$rd" --version | awk '{print $NF}')" = "$version" ] || fail "rigdeck --version doesn't report $version"
 for cmd in "" info service update cooler gpu "gpu status" "gpu fan" "gpu power" "gpu enable-controls" \
-           headset "headset status" "headset sidetone" "headset auto-off" "headset lights"; do
+           headset "headset status" "headset sidetone" "headset auto-off" "headset lights" \
+           webcam "webcam list" "webcam status" "webcam set" "webcam reset"; do
     # shellcheck disable=SC2086  # word-splitting the subcommand is intended
     "$rd" $cmd --help >/dev/null || fail "rigdeck $cmd --help failed"
 done
