@@ -17,8 +17,8 @@ CONTROLS = {
     ddc.BRIGHTNESS: ("brightness", "Brightness", "range"),
     ddc.CONTRAST: ("contrast", "Contrast", "range"),
     ddc.PRESET: ("preset", "Color preset", "choice"),
-    ddc.VOLUME: ("volume", "Speaker volume", "range"),
-    ddc.MUTE: ("mute", "Mute speakers", "switch"),
+    ddc.VOLUME: ("volume", "Volume", "range"),
+    ddc.MUTE: ("mute", "Mute", "switch"),
     ddc.INPUT: ("input", "Input", "choice"),
 }
 KEYS = {v[0]: code for code, v in CONTROLS.items()}

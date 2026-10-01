@@ -85,7 +85,8 @@ PageScroll {
                     readonly property var c: modelData
                     title: c.label
                     description: c.key === "input" ? "Names come from the monitor and may not match its ports. "
-                                                     + "Switches back after " + 10 + " s unless you keep it." : ""
+                                                     + "Switches back after " + 10 + " s unless you keep it."
+                               : c.key === "volume" ? "The monitor's speakers or its headphone jack" : ""
                     Slider {
                         id: sl
                         visible: row.c.kind === "range"
