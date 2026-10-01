@@ -249,7 +249,7 @@ def cli_screen(a):
 
 class WaterforceModule(Module):
     id = "cooler"
-    title = "Water Cooler"
+    title = "Cooler"
     icon = "fan"
     order = 10
 

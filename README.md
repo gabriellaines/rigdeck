@@ -116,7 +116,7 @@ Fan and pump modes are saved on the cooler itself. Lighting settings live in
 
 `rigdeck-gui` (or **RigDeck** in your app menu). The **Overview** shows live CPU/GPU
 temperatures, fan and pump speed, the fan curve and your devices; the sidebar has a page per
-device plus **Graphics, Processor, Memory, Storage** and **Settings**. The **Water Cooler** page
+device plus **Graphics, Processor, Memory, Storage** and **Settings**. The **Cooler** page
 has **Cooling** (modes + drag-to-edit curve), **Lighting** (effects, color, brightness, speed) and
 **Screen** (preview, one animation or a carousel with ordering, upload, delete, rotation).
 Open a page directly with `rigdeck-gui --page cooler`.
