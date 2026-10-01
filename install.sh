@@ -6,6 +6,8 @@
 #   ./install.sh --cli-only   install the command-line tool only
 #   ./install.sh --uninstall  remove rigdeck (keeps ~/.config/rigdeck)
 #
+# Most people use the one-line get.sh instead (see README), which runs this from the latest release.
+#
 # Root (sudo) is only used for system packages and the udev rule.
 set -euo pipefail
 
@@ -22,6 +24,12 @@ UNATTENDED=${RIGDECK_UNATTENDED:-}         # no questions (used by the updater)
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 warn() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
 die()  { printf '\033[31merror: %s\033[0m\n' "$*" >&2; exit 1; }
+
+ask() {  # ask "Question?" — yes unless the user types n; no keyboard means the default (yes)
+    local ans=""
+    [ -t 0 ] && { read -rp "$1 [Y/n] " ans || true; }
+    case "$ans" in [nN]*) return 1 ;; *) return 0 ;; esac
+}
 
 detect_pm() {
     if command -v pacman >/dev/null; then echo pacman
@@ -97,8 +105,7 @@ if [ "$GUI" = ask ]; then
     if have_gui_deps; then GUI=yes
     elif [ -n "$UNATTENDED" ]; then GUI=no
     else
-        read -rp "Install the graphical app too (Qt 6 / PySide6)? [Y/n] " ans
-        case "${ans:-y}" in [nN]*) GUI=no ;; *) GUI=yes ;; esac
+        if ask "Install the graphical app too (Qt 6 / PySide6)?"; then GUI=yes; else GUI=no; fi
     fi
 fi
 if [ "$GUI" = yes ] && ! have_gui_deps; then
@@ -109,11 +116,9 @@ fi
 # 1b. LACT — optional, powers GPU fan / power controls ------------------------------
 if ! command -v lact >/dev/null; then
     if [ "$(detect_pm)" = pacman ] && [ -z "$UNATTENDED" ]; then
-        read -rp "Install LACT for GPU fan and power controls? [Y/n] " ans
-        case "${ans:-y}" in
-            [nN]*) ;;
-            *) $SUDO pacman -S --needed --noconfirm lact && $SUDO systemctl enable --now lactd.service ;;
-        esac
+        if ask "Install LACT for GPU fan and power controls?"; then
+            $SUDO pacman -S --needed --noconfirm lact && $SUDO systemctl enable --now lactd.service
+        fi
     elif [ "$(detect_pm)" != pacman ]; then
         warn "Optional: install LACT for GPU controls — https://github.com/ilya-zlobintsev/LACT#installation"
     fi
