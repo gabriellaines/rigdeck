@@ -1,0 +1,44 @@
+# Validations for every change. Also called by release.yml before publishing.
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.x"]   # oldest supported and newest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: scripts/check.sh
+
+  # A pull request into main is a release: its version must be new.
+  release-ready:
+    name: Version is new
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          v=$(scripts/version.sh)
+          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+            echo "::error::v$v is already released. On develop run scripts/bump-version.sh <new version>, commit and push."
+            exit 1
+          fi
+          echo "Merging this publishes v$v"
