@@ -1,6 +1,6 @@
 [Unit]
 Description=rigdeck hardware service (feeds CPU temperature to AIO coolers, runs lighting effects)
-Documentation=https://github.com/YOUR_GITHUB_USER/rigdeck
+Documentation=https://github.com/gabriellaines/rigdeck
 
 [Service]
 ExecStart=/usr/bin/rigdeck service

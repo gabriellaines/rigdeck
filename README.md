@@ -16,7 +16,7 @@ the only way to control some hardware.
 ## Install
 
 ```sh
-git clone https://github.com/YOUR_GITHUB_USER/rigdeck
+git clone https://github.com/gabriellaines/rigdeck
 cd rigdeck
 ./install.sh            # asks whether you want the graphical app
 ```

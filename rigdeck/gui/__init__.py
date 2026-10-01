@@ -52,7 +52,7 @@ def main():
             Adw.AboutDialog(application_name="rigdeck", application_icon=APP_ID, version=__version__,
                             comments="Control panel for PC hardware on Linux",
                             license_type=Gtk.License.GPL_3_0,
-                            website="https://github.com/").present(self.get_active_window())
+                            website="https://github.com/gabriellaines/rigdeck").present(self.get_active_window())
 
     argv = list(sys.argv)
     start_page = None
