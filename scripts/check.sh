@@ -33,7 +33,7 @@ ok "Python compiles"
 # 4. the package installs, with every data file -------------------------------------
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-python3 -m venv "$tmp/venv"
+python3 -m venv --system-site-packages "$tmp/venv"   # sees PySide6 (GUI tests) if installed
 "$tmp/venv/bin/pip" install --quiet --disable-pip-version-check . || fail "pip install failed"
 rm -rf build rigdeck.egg-info
 # run from $tmp: in the repo, Python would import the source tree instead of the install
