@@ -6,6 +6,7 @@ from .gpu import GpuModule
 from .headset import HeadsetModule
 from .keyboard import KeyboardModule
 from .monitor import MonitorModule
+from .motherboard import MotherboardModule
 from .mouse import MouseModule
 from .webcam import WebcamModule
 from .system import MemoryModule, ProcessorModule, StorageModule
@@ -13,7 +14,7 @@ from .waterforce import WaterforceModule
 
 MODULES: list[Module] = [WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
                          StorageModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
-                         MonitorModule()]
+                         MonitorModule(), MotherboardModule()]
 
 
 def by_id(module_id: str) -> Module:

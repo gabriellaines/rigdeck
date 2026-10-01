@@ -13,6 +13,7 @@ the only way to control some hardware.
 | GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
+| Motherboard: model, BIOS, board temperatures, fan headers (Nuvoton `nct6775` / ITE `it87` sensors) | ✅ monitoring · 🛠️ fan control planned |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
@@ -95,6 +96,7 @@ rigdeck headset auto-off 30                    # minutes idle before it turns of
 rigdeck mouse status                           # battery, DPI stages, polling rate, light
 rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
 rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
+rigdeck motherboard                            # board, BIOS, temperatures, fan headers
 rigdeck monitor status                         # every monitor's controls
 rigdeck monitor set brightness=40              # all monitors (or --monitor N)
 rigdeck webcam status                          # all controls and their values
