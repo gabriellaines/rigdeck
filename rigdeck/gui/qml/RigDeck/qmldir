@@ -1,0 +1,20 @@
+module RigDeck
+Icon 1.0 Icon.qml
+Card 1.0 Card.qml
+MetricCard 1.0 MetricCard.qml
+Panel 1.0 Panel.qml
+DeviceRow 1.0 DeviceRow.qml
+InfoCard 1.0 InfoCard.qml
+StatusDot 1.0 StatusDot.qml
+NavItem 1.0 NavItem.qml
+FanSpinner 1.0 FanSpinner.qml
+CurveChart 1.0 CurveChart.qml
+Chip 1.0 Chip.qml
+Segmented 1.0 Segmented.qml
+Banner 1.0 Banner.qml
+PageHeader 1.0 PageHeader.qml
+KeyValue 1.0 KeyValue.qml
+UsageBar 1.0 UsageBar.qml
+ActionLink 1.0 ActionLink.qml
+IconButton 1.0 IconButton.qml
+PageScroll 1.0 PageScroll.qml

@@ -12,8 +12,8 @@ requires-python = ">=3.11"
 dependencies = []  # core/CLI is pure standard library
 
 [project.optional-dependencies]
-# Prefer your distro's packages (python-gobject + gtk4 + libadwaita); see README.
-gui = ["PyGObject>=3.48"]
+# Prefer your distro's PySide6 package; see README.
+gui = ["PySide6>=6.5"]
 
 [project.scripts]
 rigdeck = "rigdeck.cli:main"
@@ -28,4 +28,6 @@ version = { attr = "rigdeck.__version__" }
 include = ["rigdeck*"]
 
 [tool.setuptools.package-data]
-"rigdeck.gui" = ["style.css", "icons/hicolor/scalable/actions/*.svg"]
+"rigdeck.gui" = ["icons/*.svg", "icons/LICENSE-lucide.txt", "qml/*.qml", "qml/pages/*.qml",
+                 "qml/RigDeck/*.qml", "qml/RigDeck/qmldir"]
+"rigdeck.modules.waterforce" = ["qml/*.qml"]

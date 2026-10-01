@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from ... import config, servicectl
@@ -81,7 +82,8 @@ class CoolerTask(ServiceTask):
                                          threads=self.threads, cores=self.cores, amd=self.amd)
             effect, rgb, bright = effects.settings(self.led)
             if effect in effects.SOFTWARE:
-                self.cooler.led_color(*effects.frame(effect, rgb, bright, now - self.t0))
+                t = (now - self.t0) * effects.speed(self.led) / effects.DEFAULT_SPEED
+                self.cooler.led_color(*effects.frame(effect, rgb, bright, t))
                 return EFFECT_INTERVAL
             return max(0.05, self.next_sensor - now)
         except CoolerError as e:
@@ -94,7 +96,8 @@ class CoolerTask(ServiceTask):
         self._drop()
 
 
-def set_led(effect: str, color: str | None = None, brightness: int | None = None) -> str:
+def set_led(effect: str, color: str | None = None, brightness: int | None = None,
+            speed: int | None = None) -> str:
     """Save LED settings and apply them. Returns a human message. Shared by CLI and GUI."""
     cfg = config.load()
     led = config.section(cfg, "cooler", "led")
@@ -104,6 +107,8 @@ def set_led(effect: str, color: str | None = None, brightness: int | None = None
         led["color"] = color.lstrip("#").lower()
     if brightness is not None:
         led["brightness"] = max(0, min(100, int(brightness)))
+    if speed is not None:
+        led["speed"] = max(1, min(10, int(speed)))
     config.save(cfg)
     if servicectl.reload():
         return "applied"
@@ -201,7 +206,7 @@ def cli_mode(a):
 
 
 def cli_led(a):
-    print(f"LED {a.effect}: {set_led(a.effect, a.color, a.brightness)}")
+    print(f"LED {a.effect}: {set_led(a.effect, a.color, a.brightness, a.speed)}")
 
 
 def cli_screen(a):
@@ -244,8 +249,9 @@ def cli_screen(a):
 
 class WaterforceModule(Module):
     id = "cooler"
-    title = "AIO Cooler"
-    icon = "rigdeck-cooler-symbolic"
+    title = "Water Cooler"
+    icon = "fan"
+    order = 10
 
     def detect(self) -> bool:
         return bool(find_hidraw())
@@ -266,6 +272,7 @@ class WaterforceModule(Module):
         l.add_argument("effect", choices=effects.ALL)
         l.add_argument("color", nargs="?", help="RRGGBB hex, e.g. ff0000")
         l.add_argument("-b", "--brightness", type=int, metavar="0-100")
+        l.add_argument("-s", "--speed", type=int, metavar="1-10", help="speed of pulse/flash/cycle (default 5)")
         l.set_defaults(func=cli_led)
 
         s = cs.add_parser("screen", help="LCD screen")
@@ -288,7 +295,10 @@ class WaterforceModule(Module):
     def service_task(self):
         return CoolerTask()
 
-    def gui_page(self, window):
-        from .page import CoolerPage
-        return CoolerPage(window)
+    def qml_page(self):
+        return os.path.join(os.path.dirname(__file__), "qml", "CoolerPage.qml")
+
+    def qt_backend(self, app):
+        from .qt import CoolerBackend
+        return CoolerBackend()
 

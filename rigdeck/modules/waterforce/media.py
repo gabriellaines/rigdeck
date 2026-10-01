@@ -9,6 +9,8 @@ import tempfile
 from ..base import RigdeckError
 
 MAX_NAME_BYTES = 64
+PREVIEW_DIR = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
+                           "rigdeck", "screen-previews")
 
 
 class MediaError(RigdeckError):
@@ -20,6 +22,22 @@ def target_name(src: str) -> str:
     if len(name.encode("utf-8")) > MAX_NAME_BYTES:
         raise MediaError(f"file name too long: max {MAX_NAME_BYTES} bytes (UTF-8) including .mkv")
     return name
+
+
+def preview_path(name: str) -> str:
+    """Local animated preview of a stored file (only exists for files uploaded with rigdeck)."""
+    return os.path.join(PREVIEW_DIR, os.path.splitext(name)[0] + ".gif")
+
+
+def make_preview(src: str, name: str):
+    """Small looping GIF of what the cooler will show; best effort, never fails an upload."""
+    if not shutil.which("ffmpeg"):
+        return
+    os.makedirs(PREVIEW_DIR, exist_ok=True)
+    vf = ("crop='min(iw,ih)':'min(iw,ih)',scale=160:160:flags=lanczos,fps=15,"
+          "split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-t", "10", "-vf", vf, "-loop", "0",
+                    preview_path(name)], capture_output=True)
 
 
 def convert(src: str) -> bytes:

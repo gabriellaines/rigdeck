@@ -1,10 +1,12 @@
-"""Registry of hardware modules. Add new ones (GPU, …) to MODULES."""
+"""Registry of hardware modules. Add new ones (GPU controls, peripherals, …) to MODULES."""
 from __future__ import annotations
 
 from .base import Module
+from .system import GraphicsModule, MemoryModule, ProcessorModule, StorageModule
 from .waterforce import WaterforceModule
 
-MODULES: list[Module] = [WaterforceModule()]
+MODULES: list[Module] = [WaterforceModule(), GraphicsModule(), ProcessorModule(), MemoryModule(),
+                         StorageModule()]
 
 
 def by_id(module_id: str) -> Module:

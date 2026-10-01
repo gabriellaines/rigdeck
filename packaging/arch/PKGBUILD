@@ -1,6 +1,6 @@
 # Maintainer: Gabe Laines <gabrielantoniolaines@gmail.com>
 pkgname=rigdeck
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Control panel for PC hardware on Linux (AORUS WATERFORCE X II AIO cooler, more to come)"
 arch=('any')
@@ -8,9 +8,8 @@ url="https://github.com/gabriellaines/rigdeck"
 license=('GPL-3.0-or-later')
 depends=('python')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
-optdepends=('python-gobject: graphical app (rigdeck-gui)'
-            'gtk4: graphical app (rigdeck-gui)'
-            'libadwaita: graphical app (rigdeck-gui)'
+optdepends=('pyside6: graphical app (rigdeck-gui)'
+            'qt6-svg: graphical app (rigdeck-gui)'
             'ffmpeg: uploading GIFs/videos to the cooler screen')
 install=rigdeck.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")

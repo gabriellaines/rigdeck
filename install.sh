@@ -16,6 +16,8 @@ VENV="$PREFIX/share/rigdeck/venv"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UDEV_RULE=/etc/udev/rules.d/71-rigdeck.rules
 GUI=ask
+SUDO=${SUDO:-sudo}                         # the in-app updater sets SUDO=pkexec
+UNATTENDED=${RIGDECK_UNATTENDED:-}         # no questions (used by the updater)
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 warn() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
@@ -34,30 +36,26 @@ pkg_install() {  # pkg_install <role> ; role = core | gui
     pm=$(detect_pm)
     case "$pm:$role" in
         pacman:core) pkgs="python ffmpeg" ;;
-        pacman:gui)  pkgs="python-gobject gtk4 libadwaita" ;;
+        pacman:gui)  pkgs="pyside6 qt6-svg qt6-declarative" ;;
         apt:core)    pkgs="python3 python3-venv ffmpeg" ;;
-        apt:gui)     pkgs="python3-gi gir1.2-gtk-4.0 gir1.2-adw-1" ;;
+        apt:gui)     pkgs="python3-pyside6.qtquick python3-pyside6.qtquickcontrols2 python3-pyside6.qtsvg qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-dialogs qml6-module-qtquick-effects qml6-module-qtquick-templates" ;;
         dnf:core)    pkgs="python3 ffmpeg-free" ;;
-        dnf:gui)     pkgs="python3-gobject gtk4 libadwaita" ;;
+        dnf:gui)     pkgs="python3-pyside6" ;;
         zypper:core) pkgs="python3 ffmpeg" ;;
-        zypper:gui)  pkgs="python3-gobject typelib-1_0-Gtk-4_0 typelib-1_0-Adw-1" ;;
+        zypper:gui)  pkgs="python3-PySide6" ;;
         *) warn "Unknown package manager — install the $role dependencies yourself (see README)."; return 0 ;;
     esac
     bold "Installing $role dependencies: $pkgs"
     case "$pm" in
-        pacman) sudo pacman -S --needed --noconfirm $pkgs ;;
-        apt)    sudo apt-get install -y $pkgs ;;
-        dnf)    sudo dnf install -y $pkgs ;;
-        zypper) sudo zypper install -y $pkgs ;;
+        pacman) $SUDO pacman -S --needed --noconfirm $pkgs ;;
+        apt)    $SUDO apt-get install -y $pkgs ;;
+        dnf)    $SUDO dnf install -y $pkgs ;;
+        zypper) $SUDO zypper install -y $pkgs ;;
     esac
 }
 
 have_gui_deps() {
-    python3 - <<'EOF' 2>/dev/null
-import gi
-gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
-EOF
+    python3 -c 'import PySide6.QtQuick, PySide6.QtQuickControls2, PySide6.QtSvg' 2>/dev/null
 }
 
 uninstall() {
@@ -69,7 +67,7 @@ uninstall() {
     rm -rf "$PREFIX/share/rigdeck"
     systemctl --user daemon-reload || true
     if [ -f "$UDEV_RULE" ]; then
-        sudo rm -f "$UDEV_RULE" && sudo udevadm control --reload
+        $SUDO rm -f "$UDEV_RULE" && $SUDO udevadm control --reload
     fi
     bold "Done. Your settings in ~/.config/rigdeck were kept."
     exit 0
@@ -97,8 +95,9 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' || die "Python 3.1
 
 if [ "$GUI" = ask ]; then
     if have_gui_deps; then GUI=yes
+    elif [ -n "$UNATTENDED" ]; then GUI=no
     else
-        read -rp "Install the graphical app too (GTK4 + libadwaita)? [Y/n] " ans
+        read -rp "Install the graphical app too (Qt 6 / PySide6)? [Y/n] " ans
         case "${ans:-y}" in [nN]*) GUI=no ;; *) GUI=yes ;; esac
     fi
 fi
@@ -111,6 +110,7 @@ fi
 bold "Installing rigdeck into $VENV"
 rm -rf "$VENV"
 python3 -m venv --system-site-packages "$VENV"
+rm -rf "$HERE/build" "$HERE"/*.egg-info   # stale build output would leak old files into the install
 "$VENV/bin/pip" install --quiet --disable-pip-version-check "$HERE"
 mkdir -p "$PREFIX/bin"
 ln -sf "$VENV/bin/rigdeck" "$PREFIX/bin/rigdeck"
@@ -126,9 +126,9 @@ fi
 # 3. device access (udev, needs root once) ---------------------------------------
 if ! cmp -s "$HERE/packaging/71-rigdeck.rules" "$UDEV_RULE" 2>/dev/null; then
     bold "Installing udev rule (lets your user access the cooler without root)"
-    sudo install -Dm644 "$HERE/packaging/71-rigdeck.rules" "$UDEV_RULE"
-    sudo udevadm control --reload
-    sudo udevadm trigger --subsystem-match=hidraw
+    $SUDO install -Dm644 "$HERE/packaging/71-rigdeck.rules" "$UDEV_RULE"
+    $SUDO udevadm control --reload
+    $SUDO udevadm trigger --subsystem-match=hidraw
 fi
 
 # 4. background service (systemd --user) -------------------------------------------

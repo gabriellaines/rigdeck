@@ -3,7 +3,7 @@
 A module contributes up to three things, all optional:
   * CLI subcommands       -> add_cli()
   * a background task     -> service_task()   (runs inside `rigdeck service`)
-  * a GUI page            -> gui_page()       (GTK is only imported when the GUI runs)
+  * a GUI page            -> qml_page() + qt_backend()   (Qt is only imported by the GUI)
 """
 from __future__ import annotations
 
@@ -29,9 +29,11 @@ class ServiceTask:
 
 
 class Module:
-    id: str = ""            # CLI command and config table name
-    title: str = ""         # human name
-    icon: str = "application-x-executable-symbolic"
+    id: str = ""            # CLI command, config table name, GUI page id
+    title: str = ""         # human name (sidebar label)
+    icon: str = "box"       # icon name from rigdeck/gui/icons (Lucide)
+    kind: str = "device"    # "device" (a gadget you plug in) or "system" (CPU, memory, …)
+    order: int = 50         # sidebar position
 
     def detect(self) -> bool:
         """Is this hardware present?"""
@@ -43,6 +45,10 @@ class Module:
     def service_task(self) -> ServiceTask | None:
         return None
 
-    def gui_page(self, window):
-        """Return a Gtk.Widget for the main window content area."""
+    def qml_page(self) -> str | None:
+        """Absolute path of this module's QML page, or None for no GUI page."""
+        return None
+
+    def qt_backend(self, app):
+        """A QObject exposed to the page as `backend`, or None. Only called by the GUI."""
         return None

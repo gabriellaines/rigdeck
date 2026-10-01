@@ -15,7 +15,16 @@ LABELS = {"static": "Static", "pulse": "Pulse", "flash": "Flash", "dflash": "Dou
           "cycle": "Color cycle", "rainbow-wave": "Rainbow wave", "off": "Off"}
 USES_COLOR = ("static", "pulse", "flash", "dflash")
 
-DEFAULTS = {"effect": "rainbow-wave", "color": "ffffff", "brightness": 100}
+DEFAULTS = {"effect": "rainbow-wave", "color": "ffffff", "brightness": 100, "speed": 5}
+DEFAULT_SPEED = 5
+
+
+def speed(led: dict) -> int:
+    """Animation speed 1-10 for software effects (5 = GCC's timing)."""
+    try:
+        return max(1, min(10, int(led.get("speed", DEFAULT_SPEED))))
+    except (TypeError, ValueError):
+        return DEFAULT_SPEED
 
 
 def settings(led: dict) -> tuple[str, tuple[int, int, int], int]:

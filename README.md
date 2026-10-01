@@ -1,7 +1,8 @@
 # rigdeck
 
 A lightweight control panel for PC hardware on Linux — as a **command-line tool** and a
-**modern GTK4 / libadwaita app**. Both are always installed; use whichever you like.
+**Qt 6 / QML desktop app** in a calm, Breeze-style design (dark and light). Both are always
+installed; use whichever you like.
 
 Built because vendor tools (GIGABYTE Control Center, …) are Windows-only, heavy, and
 the only way to control some hardware.
@@ -10,8 +11,8 @@ the only way to control some hardware.
 |---|---|
 | GIGABYTE **AORUS WATERFORCE X II** 240 / 360 / 360 ICE (USB `0414:7a5e`) | ✅ fans, pump, curves, RGB, LCD screen |
 | GIGABYTE AORUS ELITE 240 / 360 AIOs (`0414:7a69`–`7a6c`) | 🧪 same protocol family, untested |
-| AMD GPUs (fan modes, zero-RPM, clocks) | 🛠️ planned |
-| System overview: CPU, GPU, Mesa / Vulkan / kernel driver, VBIOS | ✅ |
+| AMD GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring · 🛠️ controls planned |
+| Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
 
 ## Install
 
@@ -26,7 +27,7 @@ Changed your mind later? Run `./install.sh --gui` again to add the app.
 
 The installer works on Arch / CachyOS / Manjaro, Fedora, Debian / Ubuntu and openSUSE. It:
 
-1. installs Python ≥ 3.11 and ffmpeg (and GTK4 + libadwaita if you want the app) from your distro,
+1. installs Python ≥ 3.11 and ffmpeg (and Qt 6 for Python — PySide6 — if you want the app) from your distro,
 2. installs rigdeck into `~/.local` (its own virtualenv — nothing touches system Python),
 3. adds a **udev rule** so your user can talk to the cooler without root (asks for `sudo` once),
 4. enables the **`rigdeck` user service**.
@@ -52,7 +53,10 @@ rigdeck cooler mode --curve 30:1000 50:1400 65:1900 80:2500   # custom fan curve
 rigdeck cooler led static ff0000 -b 60         # static | pulse | flash | dflash | cycle | rainbow-wave | off
 rigdeck cooler screen upload my.gif            # any GIF / video / image → 320×320 animation
 rigdeck cooler screen rotate 90
-rigdeck cooler screen list
+rigdeck cooler screen list                     # ▶ marks what's playing
+rigdeck cooler screen play 3 0 2               # play files 3, 0, 2 in that order (`play 2` = just one)
+rigdeck cooler screen delete old.mkv
+rigdeck update                                 # update to the latest GitHub release
 ```
 
 Fan and pump modes are saved on the cooler itself. Lighting settings live in
@@ -60,9 +64,16 @@ Fan and pump modes are saved on the cooler itself. Lighting settings live in
 
 ## The app
 
-`rigdeck-gui` (or **rigdeck** in your app menu). A sidebar lists your hardware; the cooler
-page has **Cooling** (modes + drag-to-edit fan curve), **Lighting** and **Screen** tabs with
-live RPM and temperature on top. Open a page directly with `rigdeck-gui --page cooler`.
+`rigdeck-gui` (or **RigDeck** in your app menu). The **Overview** shows live CPU/GPU
+temperatures, fan and pump speed, the fan curve and your devices; the sidebar has a page per
+device plus **Graphics, Processor, Memory, Storage** and **Settings**. The **Water Cooler** page
+has **Cooling** (modes + drag-to-edit curve), **Lighting** (effects, color, brightness, speed) and
+**Screen** (preview, one animation or a carousel with ordering, upload, delete, rotation).
+Open a page directly with `rigdeck-gui --page cooler`.
+
+**Updates:** RigDeck checks GitHub for a new release when it starts (turn off in Settings).
+If you installed with `install.sh`, *Settings → Update now* downloads and installs it; with the
+AUR package, update through your package manager.
 
 ## Notes
 
@@ -75,9 +86,11 @@ live RPM and temperature on top. Open a page directly with `rigdeck-gui --page c
 ## Adding hardware
 
 Each device is a module in `rigdeck/modules/` implementing `Module`
-([`base.py`](rigdeck/modules/base.py)): CLI subcommands, an optional service task and an
-optional GUI page. Register it in `rigdeck/modules/__init__.py`.
+([`base.py`](rigdeck/modules/base.py)): CLI subcommands, an optional service task, and an optional
+GUI page (a QML file + a Qt backend object exposed under the module's id). The sidebar is built
+from the registered modules. Shared QML components (metric cards, panels, device rows, curve
+chart…) live in `rigdeck/gui/qml/RigDeck`.
 
 ## License
 
-GPL-3.0-or-later. Not affiliated with GIGABYTE.
+GPL-3.0-or-later. Icons from [Lucide](https://lucide.dev) (ISC). Not affiliated with GIGABYTE.
