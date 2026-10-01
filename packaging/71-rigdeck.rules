@@ -1,3 +1,8 @@
 # rigdeck: let the logged-in user talk to supported devices without root.
 # GIGABYTE AORUS WATERFORCE X II (0414:7a5e); AORUS ELITE AIOs (0414:7a69-7a6c, same protocol family).
 KERNEL=="hidraw*", ATTRS{idVendor}=="0414", ATTRS{idProduct}=="7a5e|7a69|7a6a|7a6b|7a6c", TAG+="uaccess"
+# Compx-based mice (3554): Attack Shark X11 Ultra (f517 dongle, f515 cable);
+# Pulsar wireless mice incl. Xlite V3 (f507 cable, f508 1K dongle, f509 4K dongle).
+KERNEL=="hidraw*", ATTRS{idVendor}=="3554", ATTRS{idProduct}=="f515|f517|f507|f508|f509", TAG+="uaccess"
+# Logitech PRO X TKL RAPID keyboard (046d:c35b), HID++ interface.
+KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c35b", TAG+="uaccess"

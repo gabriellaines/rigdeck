@@ -14,6 +14,7 @@ the only way to control some hardware.
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
+| Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Webcams (any UVC camera, e.g. Logitech C920): brightness, white balance, exposure, focus, zoom, live preview | ✅ |
 
 ## Install
@@ -89,6 +90,8 @@ rigdeck gpu enable-controls                    # one-time: AMD overdrive, then r
 rigdeck headset status                         # battery and settings
 rigdeck headset sidetone off                   # or on, or a level 0–128
 rigdeck headset auto-off 30                    # minutes idle before it turns off (0 = never)
+rigdeck mouse status                           # battery, DPI stages, polling rate, light
+rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
 rigdeck webcam status                          # all controls and their values
 rigdeck webcam set brightness=140 focus_automatic_continuous=off
 rigdeck update                                 # update to the latest GitHub release
