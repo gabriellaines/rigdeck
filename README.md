@@ -167,4 +167,7 @@ The full process is in [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 
 ## License
 
-GPL-3.0-or-later. Icons from [Lucide](https://lucide.dev) (ISC). Not affiliated with GIGABYTE.
+GPL-3.0-or-later. Icons from [Lucide](https://lucide.dev) (ISC). Not affiliated with any hardware maker;
+product names belong to their owners. Protocol credits: the Linux `hid-pulsar` driver and
+[attack-shark-x11-ultra-linux](https://github.com/MontyMcK/attack-shark-x11-ultra-linux) (mice),
+[OpenRGB](https://openrgb.org) (ASUS Aura), [Solaar](https://github.com/pwr-Solaar/Solaar) (Logitech HID++).

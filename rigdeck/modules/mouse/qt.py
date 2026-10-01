@@ -1,13 +1,19 @@
-"""`mouse` in QML: connected mice, settings (written to the mouse's flash) and battery."""
+"""`mouse` in QML: connected mice, settings (written to the mouse's flash) and battery.
+
+Polling is tiered to stay cheap:
+  * every 2 s   which mice are plugged in (sysfs only, no talking to the mice)
+  * every 10 s  full settings of the mouse shown, only while the Mouse page is open
+  * every 60 s  battery of every mouse (for the Overview), one request each
+Each mouse keeps its last known state, so switching between mice doesn't blank the page.
+"""
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from ...gui.bridge import run_async
-from . import MAX_STAGES, backup, change, compx, connected, read_state
+from . import MAX_STAGES, MODELS, backup, change, compx, connected, read_battery, read_state
 
-POLL_AWAKE_MS = 30000   # battery and settings
-POLL_ASLEEP_MS = 4000   # notice quickly when it wakes up
+HOTPLUG_MS, PAGE_MS, BATTERY_MS = 2000, 10000, 60000
 
 
 class MouseBackend(QObject):
@@ -17,88 +23,176 @@ class MouseBackend(QObject):
 
     def __init__(self):
         super().__init__()
-        self._mice: list[dict] = []
+        self._mice: list[dict] = []        # [{node, pid, model}]
+        self._states: dict[str, dict] = {}   # node -> last known state (full or battery-only)
+        self._errors: dict[str, str] = {}
         self._index = 0
-        self._state: dict = {}
-        self._status = "loading"   # loading | ok | asleep | none | error
-        self._error = ""
-        self._reading = False
-        self._busy = False
-        self._timer = QTimer(self, singleShot=True, timeout=self.refresh)
-        self.refresh()
+        self._active = False               # Mouse page visible
+        self._io = False                   # one request to the mice at a time
+        self._busy = False                 # a write is in progress
+        self._loaded = False
+        self._full_pending = False         # a full read was asked for while another request ran
+        for interval, fn in ((HOTPLUG_MS, self._hotplug), (PAGE_MS, self._page_tick), (BATTERY_MS, self._battery_tick)):
+            QTimer(self, interval=interval, timeout=fn).start()
+        self._hotplug()
+
+    # ---- polling -------------------------------------------------------------------------
 
     def _dev(self) -> dict | None:
         return self._mice[self._index] if self._index < len(self._mice) else None
 
-    # ---- reading -------------------------------------------------------------------------
+    def _hotplug(self):
+        mice = connected()
+        if [m["node"] for m in mice] == [m["node"] for m in self._mice] and self._loaded:
+            return
+        current = self._dev()
+        self._mice, self._loaded = mice, True
+        nodes = {m["node"] for m in mice}
+        self._states = {n: s for n, s in self._states.items() if n in nodes}
+        # stay on the same mouse if it's still there (cable <-> receiver swaps change the node)
+        self._index = next((i for i, m in enumerate(mice) if current and m["model"] == current["model"]), 0)
+        self.miceChanged.emit()
+        self.stateChanged.emit()
+        self._battery_tick()
+        if self._active:
+            self._read_full()
+
+    def _job(self, fn, done):
+        """Run one mouse request off the UI thread; skipped if another is in flight (timers retry)."""
+        if self._io or self._busy:
+            return False
+        self._io = True
+
+        def finish():
+            self._io = False
+            if self._full_pending:
+                self._full_pending = False
+                self._read_full()
+
+        def ok(r):
+            done(r)
+            finish()
+
+        def failed(e):
+            self.stateChanged.emit()
+            finish()
+        run_async(fn, ok, failed)
+        return True
+
+    def _read_full(self):
+        dev = self._dev()
+        if not dev:
+            return
+
+        def got(st):
+            prev = self._states.get(dev["node"], {})
+            # asleep: keep the last known settings, just mark it asleep
+            self._states[dev["node"]] = {**prev, **st} if st["asleep"] and "stages" in prev else st
+            self._errors.pop(dev["node"], None)
+            self.stateChanged.emit()
+
+        def fn():
+            try:
+                return read_state(dev)
+            except compx.MouseError as e:
+                self._errors[dev["node"]] = str(e)
+                raise
+        if not self._job(fn, got):
+            self._full_pending = True
+
+    def _battery_tick(self):
+        mice = list(self._mice)
+        if not mice:
+            return
+
+        def fn():
+            out = {}
+            for d in mice:
+                try:
+                    out[d["node"]] = read_battery(d)
+                except compx.MouseError as e:
+                    out[d["node"]] = {"error": str(e)}
+            return out
+
+        def got(res):
+            for node, st in res.items():
+                if "error" in st:
+                    self._errors[node] = st["error"]
+                    continue
+                self._errors.pop(node, None)
+                self._states[node] = {**self._states.get(node, {}), **st}
+            self.stateChanged.emit()
+        self._job(fn, got)
+
+    def _page_tick(self):
+        if self._active:
+            self._read_full()
+
+    @Slot(bool)
+    def setActive(self, on):
+        """The Mouse page tells us when it's visible; full reads only happen then."""
+        self._active = bool(on)
+        if on:
+            self._read_full()
 
     @Slot()
     def refresh(self):
-        if self._reading or self._busy:
-            return
-        self._reading = True
-        index = self._index
+        self._read_full()
 
-        def read():
-            mice = connected()
-            i = min(index, max(0, len(mice) - 1))
-            return mice, i, (read_state(mice[i]) if mice else None)
+    # ---- state for QML -------------------------------------------------------------------
 
-        def got(r):
-            self._reading = False
-            mice, i, st = r
-            if mice != self._mice or i != self._index:
-                self._mice, self._index = mice, i
-                self.miceChanged.emit()
-            self._state = st or {}
-            self._status = "none" if st is None else "asleep" if st["asleep"] else "ok"
-            self._error = ""
-            self.stateChanged.emit()
-            self._timer.start(POLL_ASLEEP_MS if self._status != "ok" else POLL_AWAKE_MS)
-
-        def failed(e):
-            self._reading = False
-            self._status, self._error = "error", str(e)
-            self.stateChanged.emit()
-            self._timer.start(POLL_ASLEEP_MS)
-        run_async(read, got, failed)
+    def _status(self, dev) -> str:
+        if not dev:
+            return "none" if self._loaded else "loading"
+        st = self._states.get(dev["node"])
+        if st is None:
+            return "error" if dev["node"] in self._errors else "loading"
+        return "asleep" if st.get("asleep") else "ok" if "stages" in st else "loading"
 
     @Property("QVariantList", notify=miceChanged)
     def mice(self):
-        from . import MODELS
         return [{"name": MODELS[d["model"]]["name"], "node": d["node"]} for d in self._mice]
 
     index = Property(int, lambda self: self._index, notify=miceChanged)
-    state = Property("QVariantMap", lambda self: self._state, notify=stateChanged)
-    status = Property(str, lambda self: self._status, notify=stateChanged)
-    error = Property(str, lambda self: self._error, notify=stateChanged)
+    state = Property("QVariantMap", lambda self: self._states.get(self._dev()["node"], {}) if self._dev() else {},
+                     notify=stateChanged)
+    status = Property(str, lambda self: self._status(self._dev()), notify=stateChanged)
+    error = Property(str, lambda self: self._errors.get(self._dev()["node"], "") if self._dev() else "",
+                     notify=stateChanged)
     busy = Property(bool, lambda self: self._busy, notify=stateChanged)
     maxStages = Property(int, lambda self: MAX_STAGES, constant=True)
     rates = Property("QVariantList", lambda self: sorted(compx.RATE_CODES), constant=True)
 
+    @Property("QVariantList", notify=stateChanged)
+    def summaries(self):
+        """One Overview row per mouse."""
+        rows = []
+        for d in self._mice:
+            s, st = self._states.get(d["node"], {}), self._status(d)
+            b = s.get("battery") or {}
+            status = {"ok": "Connected", "asleep": "Asleep", "loading": "…", "error": "Not answering",
+                      "none": ""}[st]
+            if b and st in ("ok", "asleep") and not s.get("asleep"):
+                status = f"{b['level']}% battery" + (" · charging" if b.get("charging") else "")
+            rows.append({"id": "mouse", "icon": "mouse", "title": s.get("name") or MODELS[d["model"]]["name"],
+                         "detail": MODELS[d["model"]]["pids"][d["pid"]].capitalize(), "status": status,
+                         "connected": st in ("ok", "asleep"), "tone": "live" if st == "ok" or b else "warning",
+                         "battery": b.get("level")})
+        return rows
+
     @Property("QVariantMap", notify=stateChanged)
     def summary(self):
-        s, st = self._state, self._status
-        b = s.get("battery") or {}
-        n = len(self._mice)
-        status = {"ok": "Connected", "asleep": "Asleep", "none": "Not found", "loading": "…",
-                  "error": "Error"}[st]
-        if st == "ok" and b:
-            status = f"{b['level']}% battery" + (" · charging" if b.get("charging") else "")
-        return {"id": "mouse", "icon": "mouse", "title": s.get("name") or "Mouse",
-                "detail": (s.get("connection", "").capitalize() + (f" · {n} mice" if n > 1 else "")) or "",
-                "status": status, "connected": st == "ok",
-                "tone": "live" if st == "ok" else "warning" if st in ("asleep", "loading") else "error",
-                "battery": b.get("level") if st == "ok" else None}
+        rows = self.summaries
+        return rows[0] if rows else {"id": "mouse", "icon": "mouse", "title": "Mouse", "detail": "",
+                                     "status": "Not found", "connected": False, "tone": "warning"}
 
     @Slot(int)
     def select(self, i):
         if 0 <= i < len(self._mice) and i != self._index:
             self._index = i
-            self._state, self._status = {}, "loading"
             self.miceChanged.emit()
-            self.stateChanged.emit()
-            self.refresh()
+            self.stateChanged.emit()   # shows the cached state right away; the read refreshes it
+            self._read_full()
 
     # ---- writing -------------------------------------------------------------------------
 
@@ -120,12 +214,12 @@ class MouseBackend(QObject):
             self._busy = False
             if done_text:
                 self.toast.emit(done_text)
-            self.refresh()
+            self._read_full()
 
         def failed(e):
             self._busy = False
             self.toast.emit(f"Could not change the mouse: {e}")
-            self.refresh()
+            self._read_full()
         run_async(work, done, failed)
 
     @Slot(int)

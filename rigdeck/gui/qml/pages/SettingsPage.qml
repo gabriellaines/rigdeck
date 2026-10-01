@@ -145,8 +145,9 @@ PageScroll {
         KeyValue { key: "Session"; value: system.info.session || "" }
         ActionLink { label: "Project on GitHub"; onClicked: appState.openUrl(appState.repoUrl) }
         Label {
-            text: "Not affiliated with GIGABYTE. Cooler support is reverse-engineered for interoperability; "
-                  + "RigDeck only sends commands observed from GIGABYTE Control Center and never touches firmware."
+            text: "Not affiliated with any hardware maker; product names belong to their owners. Device support "
+                  + "comes from public standards, open-source projects and interoperability research. RigDeck "
+                  + "never updates or changes device firmware."
             color: theme.muted
             font.pixelSize: 12
             wrapMode: Text.WordWrap

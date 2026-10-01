@@ -6,7 +6,8 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from ...gui.bridge import run_async
 from . import change, hc, saved
 
-POLL_MS = 10000
+POLL_PAGE_MS = 3000      # while the Headset page is open: notice on/off quickly
+POLL_MS = 15000          # otherwise (Overview battery)
 
 
 class HeadsetBackend(QObject):
@@ -27,6 +28,13 @@ class HeadsetBackend(QObject):
         self.refresh()
 
     # ---- polling ---------------------------------------------------------------------
+
+    @Slot(bool)
+    def setActive(self, on):
+        """The Headset page tells us when it's visible."""
+        self._timer.setInterval(POLL_PAGE_MS if on else POLL_MS)
+        if on:
+            self.refresh()
 
     @Slot()
     def refresh(self):

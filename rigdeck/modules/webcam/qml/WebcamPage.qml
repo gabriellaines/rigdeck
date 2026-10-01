@@ -43,6 +43,7 @@ PageScroll {
         visible: page.has
         spacing: 12
         Segmented {
+            Layout.fillWidth: true
             visible: webcam.cameras.length > 1
             model: webcam.cameras.map(c => c.name)
             currentIndex: webcam.index

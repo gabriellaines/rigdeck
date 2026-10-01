@@ -8,6 +8,7 @@ PageScroll {
     property bool shown: true
     readonly property var s: mouse.state
     readonly property bool ok: mouse.status === "ok"
+    readonly property bool known: s.stages !== undefined     // last known settings, also while asleep
     readonly property var b: s.battery || null
 
     // DPI edits stay local until Apply (each write wears the mouse's flash a little)
@@ -21,7 +22,10 @@ PageScroll {
         function onToast(m) { root.showToast(m) }
         function onStateChanged() { if (!page.dpiDirty) page.resetDraft() }
     }
-    Component.onCompleted: resetDraft()
+    Component.onCompleted: { resetDraft(); mouse.setActive(shown) }
+    onShownChanged: mouse.setActive(shown)
+    // a different mouse: its draft starts from its own stages
+    Connections { target: mouse; function onMiceChanged() { page.draft = []; page.resetDraft() } }
 
     PageHeader {
         title: page.s.name || "Mouse"
@@ -34,6 +38,7 @@ PageScroll {
     }
 
     Segmented {
+        Layout.fillWidth: true
         visible: mouse.mice.length > 1
         model: mouse.mice.map(m => m.name)
         currentIndex: mouse.index
@@ -44,6 +49,7 @@ PageScroll {
         visible: mouse.status === "asleep"
         tone: "info"
         text: "The mouse is asleep (its receiver answers, the mouse doesn't). Move it to wake it — this page updates by itself."
+              + (page.known ? " Showing its last known settings." : "")
     }
     Banner {
         visible: mouse.status === "none"
@@ -63,7 +69,7 @@ PageScroll {
 
     GridLayout {
         Layout.fillWidth: true
-        visible: page.ok
+        visible: page.known
         columns: page.pageWidth >= 900 ? 3 : 1
         columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
         MetricCard {
@@ -92,8 +98,8 @@ PageScroll {
     // ---- DPI stages
     Panel {
         Layout.fillWidth: true
-        visible: page.ok
-        enabled: !mouse.busy
+        visible: page.known
+        enabled: page.ok && !mouse.busy
         title: "Sensitivity (DPI)"
         subtitle: "The DPI button on the mouse cycles through these stages; the light shows which one is active"
         SettingRow {
@@ -142,8 +148,8 @@ PageScroll {
     // ---- performance
     Panel {
         Layout.fillWidth: true
-        visible: page.ok
-        enabled: !mouse.busy
+        visible: page.known
+        enabled: page.ok && !mouse.busy
         title: "Performance"
         subtitle: "Saved on the mouse right away"
         SettingRow {
@@ -179,8 +185,8 @@ PageScroll {
     // ---- light
     Panel {
         Layout.fillWidth: true
-        visible: page.ok
-        enabled: !mouse.busy
+        visible: page.known
+        enabled: page.ok && !mouse.busy
         title: "Light"
         readonly property var led: page.s.led || ({})
         SettingRow {
@@ -211,7 +217,7 @@ PageScroll {
 
     Panel {
         Layout.fillWidth: true
-        visible: page.ok
+        visible: page.known
         title: "Backup"
         subtitle: "RigDeck saves the mouse's settings before its first change; backups are in ~/.local/share/rigdeck/mouse-backups"
         RowLayout {
