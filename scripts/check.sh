@@ -6,7 +6,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
-fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
+fail() {
+    printf '\033[31m✗ %s\033[0m\n' "$*" >&2
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then   # also as an annotation: readable without opening the log
+        printf '::error title=scripts/check.sh::%s\n' "$(printf '%s' "$*" | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')"
+    fi
+    exit 1
+}
 
 # 1. one version everywhere -------------------------------------------------------
 version=$(scripts/version.sh)
@@ -67,7 +73,8 @@ case $rc in
     0) ok "QML compiles (${out##*$'\n'})" ;;
     2) [ -z "${RIGDECK_REQUIRE_QML:-}" ] || fail "PySide6 is needed to compile the QML"
        ok "QML (skipped: PySide6 not installed)" ;;
-    *) printf '%s\n' "$out" >&2; fail "QML errors (see above)" ;;
+    *) fail "QML errors:
+$out" ;;
 esac
 
 # 6. release notes exist for this version ---------------------------------------------
@@ -77,7 +84,9 @@ ok "CHANGELOG has notes for $version"
 # 7. tests (when there are some) ------------------------------------------------------
 if [ -d tests ]; then
     "$tmp/venv/bin/pip" install --quiet pytest
-    "$tmp/venv/bin/python" -m pytest -q tests || fail "tests failed"
+    out=$("$tmp/venv/bin/python" -m pytest -q tests 2>&1) || fail "tests failed:
+$(printf '%s\n' "$out" | tail -25)"
+    printf '%s\n' "$out" | tail -1
     ok "tests pass"
 fi
 
