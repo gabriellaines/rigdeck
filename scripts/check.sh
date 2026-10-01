@@ -51,7 +51,8 @@ rd="$tmp/venv/bin/rigdeck"
 for cmd in "" info service update cooler gpu "gpu status" "gpu fan" "gpu power" "gpu enable-controls" \
            headset "headset status" "headset sidetone" "headset auto-off" "headset lights" \
            webcam "webcam list" "webcam status" "webcam set" "webcam reset" \
-           mouse "mouse list" "mouse status" "mouse set" "mouse backup" "mouse restore"; do
+           mouse "mouse list" "mouse status" "mouse set" "mouse backup" "mouse restore" \
+           keyboard "keyboard status" "keyboard brightness" "keyboard features"; do
     # shellcheck disable=SC2086  # word-splitting the subcommand is intended
     "$rd" $cmd --help >/dev/null || fail "rigdeck $cmd --help failed"
 done

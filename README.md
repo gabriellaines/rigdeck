@@ -15,6 +15,7 @@ the only way to control some hardware.
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
+| Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
 | Webcams (any UVC camera, e.g. Logitech C920): brightness, white balance, exposure, focus, zoom, live preview | ✅ |
 
 ## Install
@@ -92,6 +93,7 @@ rigdeck headset sidetone off                   # or on, or a level 0–128
 rigdeck headset auto-off 30                    # minutes idle before it turns off (0 = never)
 rigdeck mouse status                           # battery, DPI stages, polling rate, light
 rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
+rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
 rigdeck webcam status                          # all controls and their values
 rigdeck webcam set brightness=140 focus_automatic_continuous=off
 rigdeck update                                 # update to the latest GitHub release

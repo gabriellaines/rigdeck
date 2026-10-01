@@ -155,13 +155,6 @@ PageScroll {
                                 onClicked: root.navigate(parent.s.id) }
                 }
             }
-            DeviceRow {
-                future: true
-                icon: "unplug"
-                title: "More hardware"
-                detail: "Mice, keyboard and webcam"
-                status: "Soon"
-            }
             Item { Layout.fillHeight: true }
         }
     }
