@@ -25,7 +25,10 @@ def main():
 
     class App(Adw.Application):
         def __init__(self):
-            super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+            flags = Gio.ApplicationFlags.DEFAULT_FLAGS
+            if os.environ.get("RIGDECK_DEV"):  # run a second copy next to the installed app
+                flags |= Gio.ApplicationFlags.NON_UNIQUE
+            super().__init__(application_id=APP_ID, flags=flags)
             about = Gio.SimpleAction.new("about", None)
             about.connect("activate", self._about)
             self.add_action(about)

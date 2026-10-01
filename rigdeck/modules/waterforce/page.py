@@ -10,7 +10,7 @@ from ...gui.page import Page
 from ...gui.util import Debounce, run_async
 from ...gui.widgets import CurveEditor, StatCard, StatRow
 from ...sensors import CpuSensors
-from . import effects, media, set_led
+from . import Screen, add_to_carousel, delete_media, effects, media, set_led
 from .device import FAN_MODES, PUMP_MODES, Cooler, SpeedMode, SpeedType, preset_curve
 
 FAN_LABELS = {SpeedMode.DEFAULT: "Default", SpeedMode.ZERO_RPM: "Zero RPM", SpeedMode.QUIET: "Quiet",
@@ -90,7 +90,7 @@ class CoolerPage(Page):
     def _load(self):
         def read(c: Cooler):
             return {"modes": c.modes(), "curve": c.curve(SpeedType.FAN), "rotation": c.rotation(),
-                    "fahrenheit": c.temp_unit_fahrenheit(), "media": c.list_media(),
+                    "fahrenheit": c.temp_unit_fahrenheit(), "screen": Screen.read(c),
                     "free": c.storage_free_kb()}
         self._dev(read, self._loaded, "read the cooler settings")
 
@@ -103,7 +103,7 @@ class CoolerPage(Page):
         self.pump_row.set_selected(PUMP_MODES.index(pump) if pump in PUMP_MODES else 0)
         self.rotation_row.set_selected(ROTATIONS.index(s["rotation"]) if s["rotation"] in ROTATIONS else 0)
         self.unit_row.set_selected(1 if s["fahrenheit"] else 0)
-        self._show_media(s["media"], s["free"])
+        self._show_media(s["screen"], s["free"])
         self.loading = False
         self._update_curves()
         self._set_dirty(False)
@@ -322,28 +322,169 @@ class CoolerPage(Page):
         g.add(self.unit_row)
         page.add(g)
 
-        self.media_group = Adw.PreferencesGroup(title="Stored animations")
+        self.media_group = Adw.PreferencesGroup(title="Animations")
         upload = Gtk.Button(icon_name="list-add-symbolic", tooltip_text="Upload a GIF, video or image")
         upload.add_css_class("flat")
         upload.connect("clicked", self._choose_file)
         self.media_group.set_header_suffix(upload)
         self.progress = Gtk.ProgressBar(show_text=True, visible=False, margin_bottom=8)
         self.media_group.add(self.progress)
+
+        self.show_toggle = Adw.ToggleGroup(valign=Gtk.Align.CENTER)
+        self.show_toggle.add(Adw.Toggle(name="one", label="One animation"))
+        self.show_toggle.add(Adw.Toggle(name="carousel", label="Carousel"))
+        self.show_toggle.connect("notify::active-name", self._show_mode_changed)
+        show_row = Adw.ActionRow(title="Show")
+        show_row.add_suffix(self.show_toggle)
+        self.media_group.add(show_row)
+
+        self.interval_row = Adw.SpinRow.new_with_range(5, 60, 5)
+        self.interval_row.set_title("Seconds per animation")
+        self.interval_row.connect("notify::value", lambda *_: self._screen_changed())
+        self.media_group.add(self.interval_row)
+
+        self.screen = None           # last state read from / written to the cooler
+        self.files: list[str] = []   # UI order
+        self.playing: set[str] = set()
         self.media_rows: list[Gtk.Widget] = []
+        self._screen_apply = Debounce(400, self._send_screen)
         page.add(self.media_group)
         return page
 
-    def _show_media(self, names, free_kb):
+    def _show_media(self, screen, free_kb):
+        self.screen = screen
+        self.files = list(screen.files)
+        self.playing = set(screen.playing)
+        was, self.loading = self.loading, True
+        self.show_toggle.set_active_name("one" if len(self.playing) == 1 else "carousel")
+        self.interval_row.set_value(screen.interval)
+        self.loading = was
+        self.free_kb = free_kb
+        self._rebuild_media()
+
+    def _single(self) -> bool:
+        return self.show_toggle.get_active_name() == "one"
+
+    def _rebuild_media(self):
         for r in self.media_rows:
             self.media_group.remove(r)
         self.media_rows = []
-        for n in names:
-            row = Adw.ActionRow(title=n)
-            row.add_prefix(Gtk.Image.new_from_icon_name("video-x-generic-symbolic"))
+        single = self._single()
+        self.interval_row.set_visible(not single)
+        first_check = None
+        for pos, name in enumerate(self.files):
+            row = Adw.ActionRow(title=name)
+            check = Gtk.CheckButton(active=name in self.playing, valign=Gtk.Align.CENTER)
+            if single:  # radio buttons
+                if first_check is None:
+                    first_check = check
+                else:
+                    check.set_group(first_check)
+            check.connect("toggled", self._file_toggled, name)
+            row.add_prefix(check)
+            row.set_activatable_widget(check)
+            if not single:
+                if name in self.playing:
+                    row.set_subtitle(f"#{[n for n in self.files if n in self.playing].index(name) + 1} in the rotation")
+                for icon, delta, tip in (("go-up-symbolic", -1, "Play earlier"), ("go-down-symbolic", 1, "Play later")):
+                    b = Gtk.Button(icon_name=icon, tooltip_text=tip, valign=Gtk.Align.CENTER,
+                                   sensitive=0 <= pos + delta < len(self.files))
+                    b.add_css_class("flat")
+                    b.connect("clicked", lambda _b, n=name, d=delta: self._move(n, d))
+                    row.add_suffix(b)
+            rm = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text=f"Delete {name}",
+                            valign=Gtk.Align.CENTER)
+            rm.add_css_class("flat")
+            rm.connect("clicked", lambda _b, n=name: self._confirm_delete(n))
+            row.add_suffix(rm)
             self.media_group.add(row)
             self.media_rows.append(row)
-        self.media_group.set_description(f"{free_kb / 1024:.1f} MB free on the cooler. Any GIF, video or "
-                                         "image is cropped to a square and converted for the 320×320 screen.")
+        what = "Pick the animation to show." if single else \
+            "Tick the animations to rotate through; arrows set the order."
+        self.media_group.set_description(f"{what} {self.free_kb / 1024:.1f} MB free on the cooler — "
+                                         "any GIF, video or image is converted for the round screen.")
+
+    def _show_mode_changed(self, *_):
+        if self.loading or not self.files:
+            return
+        if self._single():  # keep the first switched-on animation
+            first = next((n for n in self.files if n in self.playing), self.files[0])
+            self.playing = {first}
+        self._rebuild_media()
+        self._screen_changed()
+
+    def _file_toggled(self, check, name):
+        if self.loading:
+            return
+        if self._single():
+            if not check.get_active():
+                return  # the radio that turned off; the one turning on handles it
+            self.playing = {name}
+        elif check.get_active():
+            self.playing.add(name)
+        elif len(self.playing) == 1:
+            self.window.toast("At least one animation has to stay on")
+            self.loading = True
+            check.set_active(True)
+            self.loading = False
+            return
+        else:
+            self.playing.discard(name)
+        self._rebuild_media()
+        self._screen_changed()
+
+    def _move(self, name, delta):
+        i = self.files.index(name)
+        j = i + delta
+        self.files[i], self.files[j] = self.files[j], self.files[i]
+        self._rebuild_media()
+        self._screen_changed()
+
+    def _screen_changed(self):
+        if not self.loading and self.screen:
+            self._screen_apply()
+
+    def _send_screen(self):
+        files = list(self.files)
+        playing = [n for n in files if n in self.playing]
+        interval = int(self.interval_row.get_value())
+        screen = self.screen
+        self._dev(lambda c: screen.write(c, files, playing, interval), None, "update the screen")
+
+    def _confirm_delete(self, name):
+        dlg = Adw.AlertDialog(heading=f"Delete {name}?",
+                              body="The file is removed from the cooler's storage.")
+        dlg.add_response("cancel", "Cancel")
+        dlg.add_response("delete", "Delete")
+        dlg.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def answered(d, res):
+            if d.choose_finish(res) != "delete":
+                return
+            row = self.media_rows[self.files.index(name)]
+            row.set_subtitle("Deleting…")
+            spinner = Adw.Spinner()
+            row.add_suffix(spinner)
+            self._set_media_busy(True)
+            before = self.screen
+
+            def done(r):
+                self._set_media_busy(False)
+                self._show_media(*r)
+                self.window.toast(f"Deleted {name}")
+
+            def failed(e):
+                self._set_media_busy(False)
+                self.window.toast(f"Could not delete {name}: {e}")
+                self._load()
+            run_async(lambda: self._locked(lambda c: (delete_media(c, name, before), c.storage_free_kb())),
+                      done, failed)
+        dlg.choose(self.window, None, answered)
+
+    def _set_media_busy(self, busy: bool):
+        """Block the animation controls while the cooler is busy (deletes/uploads take seconds)."""
+        for w in [*self.media_rows, self.interval_row, self.show_toggle, self.media_group.get_header_suffix()]:
+            w.set_sensitive(not busy)
 
     def _rotation_changed(self, row, _p):
         if not self.loading:
@@ -377,6 +518,7 @@ class CoolerPage(Page):
         self.progress.set_visible(True)
         self.progress.set_fraction(0)
         self.progress.set_text("Converting…")
+        self._set_media_busy(True)
 
         def show_progress(done, total):
             self.progress.set_fraction(done / total)
@@ -391,14 +533,16 @@ class CoolerPage(Page):
             if len(data) > c.storage_free_kb() * 1024:
                 raise media.MediaError("not enough space on the cooler")
             c.upload_media(data, name, progress)
-            return c.list_media(), c.storage_free_kb()
+            return add_to_carousel(c, name), c.storage_free_kb()
 
         def done(res):
+            self._set_media_busy(False)
             self.progress.set_visible(False)
             self._show_media(*res)
-            self.window.toast(f"Uploaded {name}")
+            self.window.toast(f"Uploaded {name} — it's now in the rotation")
 
         def failed(e):
+            self._set_media_busy(False)
             self.progress.set_visible(False)
             self.window.toast(f"Upload failed: {e}")
         run_async(lambda: self._locked(work), done, failed)

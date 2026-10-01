@@ -63,7 +63,7 @@ Firmware ≥ 2.0 ("Elite") uses a 24-byte variant with GPU fields.
 | `99 c0 text logo info` / `99 c1` | set/get | show text / AORUS logo / info |
 | `99 fb interval m1+1 m2+1 …` / `99 fc` | set/get | rotate between screen modes |
 | `99 fa disk` | reply `[2]=n, [3..]` LE size in KB | free space; GCC sends disk `0x42`='B' [cap: `02 59 ba` = 47705 KB = 46.56 MB shown in UI] |
-| `99 fe len path` | set | delete a file on the cooler |
+| `99 fe len path` | set | delete a file on the cooler, e.g. `B:/spidey.mkv` |
 | `99 f3/f4/f5` | | list stored media |
 | `99 f0 mode+1 idx+1…` / `99 f6 mode+1 interval idx+1…` / `99 fd` | | media list / loop selection |
 | `99 c2` | reply `[2]` | flash write progress % |
@@ -74,11 +74,35 @@ Firmware ≥ 2.0 ("Elite") uses a 24-byte variant with GPU fields.
    has byte 2 = (remaining & 0xFF) instead of `fd` (truncated to a byte, so the cooler must rely
    on the declared size). [cap]
 3. `99 f1 mode size(BE32)` — commit (mode 2 for GIF). Then poll `99 c2` (flash %) every 2 s. [cap]
-4. GCC then sends `99 f0 07 <idx+1…>` (media list for screen mode 7 = Custom GIF) and
-   `99 f6 07 <interval s> <idx+1…>` (carousel selection). [cap]
+4. The upload is stored but **not played** until it's added to the carousel (below). [cap]
+
+### Carousel (which stored files play, and in what order)  [cap + verified on hardware]
+All use screen mode `07` (Custom GIF). Two different numberings are involved:
+
+- **File ID** — fixed, 1-based, in upload order (survives reordering; renumbered after a delete).
+- **Position** — 1-based place in the current play order.
+
+The `f5` listing returns files **in play order** (positions), not by ID.
+
+| Cmd | Layout | Meaning |
+|---|---|---|
+| `99 f0 07 id id …` | set | play order, as **file IDs** (every file once) |
+| `99 f6 07 secs pos pos …` | set | which **positions** of that order play, seconds each; then `99 b6` |
+| `99 fd 07` | reply `[3]=secs [4..]=positions` (0-terminated) | read the selection |
+
+Finding the IDs: send `f0 07 01 02 … n` (identity), list with `f3/f4/f5` → that listing is in ID
+order; then send `f0` again to restore the previous order. Verified: with order
+`spider, spidey, Aorus, spid2` (IDs 2,3,1,4), `f6 07 05 03` showed **Aorus** (position 3), not
+spidey (ID 3). One file selected = a single static animation; GCC's UI offers 5/10/15… s.
 
 **File format:** GCC only accepts GIFs, crops them in a dialog, then converts with its bundled
 ffmpeg into **Matroska + H.264 (Main, yuv420p), 320×320, 25 fps**, stored as `<name>.mkv`.
+Encoder settings matter: GCC uses `-profile:v main -level 3.1 -b:v 1000K -bf 0` (default preset →
+ref=3). **The cooler's decoder can't handle B-frames** — a file encoded with them plays as green,
+blocky garbage. [verified]
+
+**Delete:** `99 fe len "B:/<name>.mkv"` (path format from GCC for this screen mode). File indexes
+shift afterwards, so re-send the carousel.
 File name ≤ 64 bytes UTF-8. A captured upload was reassembled byte-exact and plays back correctly.
 `99 e8` reply `[2]=07` while in "Custom Gif" mode.
 

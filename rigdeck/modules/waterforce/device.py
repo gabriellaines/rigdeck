@@ -73,6 +73,7 @@ LED_RAINBOW_WAVE = bytes([0xC9, 0x08, 0x64, 0x09, 0xCC, 0xCC])
 
 # Screen modes as reported by 0xE8 / set by 0xE7 (value on the wire).
 SCREEN_MODE_CUSTOM_GIF = 7
+MAX_CAROUSEL = 250
 
 
 class CoolerError(RigdeckError):
@@ -298,6 +299,59 @@ class Cooler:
                 progress(min(off + CHUNK, len(data)), len(data))
         self.send(bytes([0xF1, commit_mode]) + size)
 
+    def carousel(self) -> tuple[list[int], int]:
+        """(indexes of stored files the screen rotates through, seconds per file)."""
+        r = self.query(bytes([0xFD, SCREEN_MODE_CUSTOM_GIF]), match=2)
+        playing = []
+        for b in r[4:]:
+            if not b:
+                break
+            playing.append(b - 1)
+        return playing, r[3]
+
+    def file_ids(self) -> tuple[list[str], dict[str, int]]:
+        """(files in current play order, stable ID of each file — 1-based, upload order).
+
+        The listing comes back in *play order*, but the order command takes these fixed IDs.
+        Sending the identity order makes the listing show ID order; then the order is put back.
+        """
+        current = self.list_media()
+        n = len(current)
+        self.send(bytes([0xF0, SCREEN_MODE_CUSTOM_GIF]) + bytes(range(1, n + 1)))
+        time.sleep(0.3)
+        by_id = self.list_media()
+        ids = {name: i + 1 for i, name in enumerate(by_id)}
+        if sorted(by_id) == sorted(current) and len(ids) == n:
+            self.send(bytes([0xF0, SCREEN_MODE_CUSTOM_GIF]) + bytes(ids[name] for name in current))
+            time.sleep(0.3)
+        return current, ids
+
+    def set_carousel(self, order_ids: list[int], playing: list[int], interval: int):
+        """Write the screen carousel and save it.
+
+        order_ids: every stored file's ID (see file_ids) in the order they should play.
+        playing:   which positions (0-based) of that order are switched on.
+        """
+        if sorted(order_ids) != list(range(1, len(order_ids) + 1)):
+            raise ValueError("order must contain every file ID exactly once")
+        positions = sorted(set(playing))
+        if not positions:
+            raise ValueError("pick at least one file to show")
+        if positions[0] < 0 or positions[-1] >= len(order_ids):
+            raise ValueError("position out of range")
+        interval = max(1, min(255, int(interval)))
+        # Same sequence as GCC: order (by ID), then which positions play, then save.
+        self.send(bytes([0xF0, SCREEN_MODE_CUSTOM_GIF]) + bytes(order_ids))
+        time.sleep(0.3)
+        self.send(bytes([0xF6, SCREEN_MODE_CUSTOM_GIF, interval]) + bytes(p + 1 for p in positions))
+        time.sleep(0.1)
+        self.save()
+
+    def delete_media(self, name: str):
+        """Delete a stored animation (path format from GCC: B:/<name>)."""
+        path = f"B:/{name}".encode("utf-8")
+        self.send(bytes([0xFE, len(path)]) + path)
+
     def list_media(self) -> list[str]:
         """Names of the GIF/video files stored on the cooler (GCC's 'Carousel List')."""
         self.send(b"\xf3\x02")
@@ -307,5 +361,4 @@ class Cooler:
         for i in range(count):
             r = self.query(bytes([0xF5, 0x02, i]), match=3)
             names.append(r[6:].split(b"\0", 1)[0].decode("utf-8", "replace"))
-            time.sleep(0.2)
         return names

@@ -23,14 +23,19 @@ def target_name(src: str) -> str:
 
 
 def convert(src: str) -> bytes:
-    """Centre-crop to square, 320x320, 25 fps, H.264 Main in Matroska — same as GCC produces."""
+    """Centre-crop to square, 320x320, 25 fps, H.264 in Matroska with GCC's exact encoder settings.
+
+    The cooler's decoder can't handle B-frames (they show up as green, blocky garbage), so this
+    mirrors GCC: Main profile, level 3.1, 1000 kbit/s, no B-frames, default preset.
+    """
     if not shutil.which("ffmpeg"):
         raise MediaError("ffmpeg is not installed")
     vf = "crop='min(iw,ih)':'min(iw,ih)',scale=320:320:flags=lanczos,fps=25,format=yuv420p"
     with tempfile.TemporaryDirectory() as td:
         out = os.path.join(td, "out.mkv")
         r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-vf", vf, "-an",
-                            "-c:v", "libx264", "-profile:v", "main", "-preset", "slow", "-crf", "23",
+                            "-c:v", "libx264", "-profile:v", "main", "-level", "3.1",
+                            "-b:v", "1000k", "-bf", "0",
                             "-f", "matroska", out], capture_output=True, text=True)
         if r.returncode != 0:
             raise MediaError("ffmpeg failed: " + (r.stderr.strip().splitlines() or ["unknown error"])[-1])

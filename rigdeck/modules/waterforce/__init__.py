@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from ... import config, servicectl
 from ...sensors import CpuSensors, core_counts, cpu_name, is_amd
@@ -113,6 +114,57 @@ def set_led(effect: str, color: str | None = None, brightness: int | None = None
     return "applied (service not running)"
 
 
+class Screen:
+    """The cooler's stored animations: play order, which ones are on, seconds each."""
+
+    def __init__(self, files: list[str], playing: list[str], interval: int, ids: dict[str, int]):
+        self.files, self.playing, self.interval, self.ids = files, playing, interval, ids
+
+    @classmethod
+    def read(cls, c: Cooler) -> "Screen":
+        files, ids = c.file_ids()
+        positions, interval = c.carousel()
+        playing = [files[p] for p in positions if p < len(files)]
+        return cls(files, playing, interval or 5, ids)
+
+    def write(self, c: Cooler, files: list[str], playing: list[str], interval: int | None = None):
+        """files: all stored names in the desired order; playing: names to show."""
+        if sorted(files) != sorted(self.ids):
+            raise ValueError("file list is out of date; reload")
+        c.set_carousel([self.ids[n] for n in files], [files.index(n) for n in playing],
+                       interval or self.interval)
+        self.files, self.playing = list(files), [n for n in files if n in playing]
+        if interval:
+            self.interval = interval
+
+
+def add_to_carousel(c: Cooler, name: str) -> Screen:
+    """After an upload: put the new file at the end and switch it on (GCC leaves it off)."""
+    time.sleep(1.0)  # let the cooler finish writing before listing
+    s = Screen.read(c)
+    files = [n for n in s.files if n != name] + [name]
+    s.write(c, files, s.playing + [name])
+    return s
+
+
+def delete_media(c: Cooler, name: str, before: Screen | None = None) -> Screen:
+    """Delete a file, keeping the order and selection of the others (IDs shift after a delete).
+
+    Pass the Screen you already have to save one read of the cooler."""
+    before = before or Screen.read(c)
+    if name not in before.files:
+        raise ValueError(f"no file named {name!r} on the cooler")
+    c.delete_media(name)
+    time.sleep(1.0)
+    after = Screen.read(c)
+    if after.files:
+        files = [n for n in before.files if n in after.ids]
+        files += [n for n in after.files if n not in files]
+        playing = [n for n in before.playing if n in after.ids] or files[:1]
+        after.write(c, files, playing, before.interval)
+    return after
+
+
 # ---- CLI -----------------------------------------------------------------
 
 def _curve(points: list[str]) -> list[tuple[int, int]]:
@@ -155,9 +207,22 @@ def cli_led(a):
 def cli_screen(a):
     with Cooler() as c:
         if a.screen_cmd == "list":
-            for n in c.list_media():
-                print(n)
-            print(f"({c.storage_free_kb() / 1024:.2f} MB free)")
+            s = Screen.read(c)
+            for i, n in enumerate(s.files):
+                print(f"{i:3d}  {'▶' if n in s.playing else ' '} {n}")
+            kind = "showing one animation" if len(s.playing) == 1 else f"carousel, {s.interval} s each"
+            print(f"▶ = on ({kind}).  {c.storage_free_kb() / 1024:.2f} MB free")
+        elif a.screen_cmd == "delete":
+            delete_media(c, a.name)
+            print(f"deleted {a.name}")
+        elif a.screen_cmd == "play":
+            s = Screen.read(c)
+            if len(set(a.index)) != len(a.index) or not all(0 <= i < len(s.files) for i in a.index):
+                raise ValueError(f"give distinct file numbers 0-{len(s.files) - 1} (see `screen list`)")
+            chosen = [s.files[i] for i in a.index]
+            # Chosen files first, in the order given; the rest keep their order after them.
+            s.write(c, chosen + [n for n in s.files if n not in chosen], chosen, a.interval)
+            print(("showing: " if len(chosen) == 1 else "playing in order: ") + ", ".join(chosen))
         elif a.screen_cmd == "rotate":
             c.set_rotation(a.degrees)
             c.save()
@@ -173,6 +238,8 @@ def cli_screen(a):
             c.upload_media(data, name, lambda d, t: print(f"\ruploading {name}: {100 * d // t:3d}%",
                                                           end="", flush=True))
             print()
+            add_to_carousel(c, name)
+            print(f"{name} added to the carousel")
 
 
 class WaterforceModule(Module):
@@ -208,7 +275,13 @@ class WaterforceModule(Module):
         r.add_argument("degrees", type=int, choices=[0, 90, 180, 270])
         u = ss.add_parser("unit", help="temperature unit")
         u.add_argument("unit", choices=["c", "f"])
-        up = ss.add_parser("upload", help="convert a GIF/video/image and store it on the cooler")
+        pl = ss.add_parser("play", help="show one file, or several in a carousel (in the order given)")
+        pl.add_argument("index", type=int, nargs="+",
+                        help="file numbers from `screen list`, e.g. `play 2` or `play 3 0 2`")
+        pl.add_argument("--interval", type=int, metavar="SECONDS", help="time per file")
+        de = ss.add_parser("delete", help="delete a stored file (name from `screen list`)")
+        de.add_argument("name")
+        up = ss.add_parser("upload", help="convert a GIF/video/image, store it and add it to the carousel")
         up.add_argument("file")
         s.set_defaults(func=cli_screen)
 
