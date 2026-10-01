@@ -12,7 +12,8 @@ optdepends=('pyside6: graphical app (rigdeck-gui)'
             'qt6-svg: graphical app (rigdeck-gui)'
             'ffmpeg: uploading GIFs/videos to the cooler screen'
             'lact: GPU fan, zero-RPM and power limit controls'
-            'headsetcontrol: headset battery and settings')
+            'headsetcontrol: headset battery and settings'
+            'ddcutil: monitor brightness, contrast and input')
 install=rigdeck.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
