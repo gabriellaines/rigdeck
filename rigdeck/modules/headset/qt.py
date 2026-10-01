@@ -65,7 +65,8 @@ class HeadsetBackend(QObject):
         s = self._st
         return {"name": s.get("name", ""), "id": s.get("id", ""), "battery": s.get("battery"),
                 "charging": bool(s.get("charging")), "caps": s.get("caps", []),
-                "sidetoneOnOff": bool(s.get("sidetone_on_off")), "chatmix": s.get("chatmix")}
+                "sidetoneOnOff": bool(s.get("sidetone_on_off")), "chatmix": s.get("chatmix"),
+                "inactiveMax": s.get("inactive_max", 90)}
 
     @Property("QVariantMap", notify=stateChanged)
     def summary(self):

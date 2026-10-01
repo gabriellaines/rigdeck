@@ -10,7 +10,7 @@ PageScroll {
     readonly property var s: headset.settings
     readonly property bool on: headset.status === "ok"
     readonly property var caps: i.caps || []
-    readonly property var offMinutes: [0, 10, 20, 30, 60, 90]
+    readonly property var offMinutes: [0, 10, 20, 30, 60, 90].filter(m => m <= (i.inactiveMax || 90))
     function has(cap) { return caps.indexOf(cap) >= 0 }
     function unset(key) { return s[key] === -1 ? "Not set from RigDeck yet — the headset can't report it" : "" }
 

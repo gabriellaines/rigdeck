@@ -61,5 +61,22 @@ def test_service_reapplies_when_headset_turns_on(monkeypatch):
     task.reload({"headset": {"sidetone": 0, "inactive_time": 30, "lights": 1}})
     for t in range(5):
         task.tick(t)
-    # applied on each off → on transition only; lights skipped (not a capability of this headset)
-    assert applied == [{"sidetone": 0, "inactive_time": 30}] * 2
+    # each setting separately, on each off → on transition only; lights skipped (not a capability)
+    assert applied == [{"sidetone": 0}, {"inactive_time": 30}] * 2
+
+
+def test_service_does_not_retry_a_failing_setting_in_a_loop(monkeypatch):
+    states = iter([HYPERX] * 5)
+    sent = []
+
+    def apply(did, s):
+        sent.append(s)
+        if "inactive_time" in s:
+            raise hc.HeadsetError("inactive_time: Protocol error")
+    monkeypatch.setattr(hc, "status", lambda: hc._device(next(states)))
+    monkeypatch.setattr(hc, "apply", apply)
+    task = headset.HeadsetTask()
+    task.reload({"headset": {"sidetone": 0, "inactive_time": 10}})
+    for t in range(5):
+        task.tick(t)
+    assert sent == [{"sidetone": 0}, {"inactive_time": 10}]   # once, not every tick (each write beeps)
