@@ -131,6 +131,9 @@ chart…) live in `rigdeck/gui/qml/RigDeck`.
 
 ## Development and releases
 
+The full process is in [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+
+
 - Work happens on **`develop`**; `main` always matches the latest release.
 - End each commit that changes something users notice with a trailer line written for them, e.g.
   `Changelog: GPU fans can now stop when the card is cool`. These lines become the release notes
