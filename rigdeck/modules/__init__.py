@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .base import Module
+from .connectivity import ConnectivityModule
 from .gpu import GpuModule
 from .headset import HeadsetModule
 from .keyboard import KeyboardModule
@@ -14,7 +15,8 @@ from .waterforce import WaterforceModule
 
 MODULES: list[Module] = [WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
                          StorageModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
-                         MonitorModule(), MotherboardModule()]
+                         MonitorModule(), MotherboardModule(),
+                         ConnectivityModule()]
 
 
 def by_id(module_id: str) -> Module:
