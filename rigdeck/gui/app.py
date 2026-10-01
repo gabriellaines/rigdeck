@@ -20,8 +20,9 @@ from .theme import Theme
 QML_DIR = os.path.join(os.path.dirname(__file__), "qml")
 
 
-def _navigation(ctx, keep: list) -> list[dict]:
-    """Sidebar entries from modules: detected devices (or ones seen before) and system pages."""
+def _navigation(ctx, keep: list, peripherals: list) -> list[dict]:
+    """Sidebar entries from modules: detected devices (or ones seen before) and system pages.
+    Peripheral backends are also collected into `peripherals` for the Overview's device list."""
     cfg = config.load()
     app_cfg = config.section(cfg, "app")
     seen = set(app_cfg.get("seen_devices", []))
@@ -31,9 +32,10 @@ def _navigation(ctx, keep: list) -> list[dict]:
         if not page:
             continue
         present = m.detect()
-        if m.kind == "device" and not present and m.id not in seen:
+        pluggable = m.kind in ("device", "peripheral")
+        if pluggable and not present and m.id not in seen:
             continue
-        if m.kind == "device" and present and m.id not in seen:
+        if pluggable and present and m.id not in seen:
             seen.add(m.id)
             app_cfg["seen_devices"] = sorted(seen)
             config.save(cfg)
@@ -41,6 +43,8 @@ def _navigation(ctx, keep: list) -> list[dict]:
         if backend is not None:
             keep.append(backend)
             ctx.setContextProperty(m.id, backend)
+            if m.kind == "peripheral":
+                peripherals.append(backend)
         nav.append({"id": m.id, "title": m.title, "icon": m.icon, "kind": m.kind,
                     "page": QUrl.fromLocalFile(page).toString()})
     return nav
@@ -72,8 +76,9 @@ def run(argv: list[str]) -> int:
     keep.append(system)
     ctx.setContextProperty("theme", theme)
     ctx.setContextProperty("system", system)
-    nav = _navigation(ctx, keep)
-    state = AppState(theme, nav)
+    peripherals: list = []
+    nav = _navigation(ctx, keep, peripherals)
+    state = AppState(theme, nav, peripherals)
     keep.append(state)
     ctx.setContextProperty("appState", state)
     ctx.setContextProperty("startPage", start_page)

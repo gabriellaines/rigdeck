@@ -8,6 +8,17 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-01
+
+- New Headset page: battery level, hearing yourself (sidetone), turning off when idle and lights, for headsets supported by HeadsetControl such as the HyperX Cloud II Wireless
+- The Overview lists your peripherals with their battery levels
+- New Webcam page: adjust brightness, white balance, exposure, focus and zoom with a live preview; works with any standard webcam such as the Logitech C920
+- Webcam settings are remembered and re-applied whenever the camera is plugged in
+- New Mouse page for the Pulsar Xlite V3 and Attack Shark X11 Ultra: battery level, DPI stages, polling rate (up to 8000 Hz), motion sync, angle snapping, ripple control and light
+- Mouse settings are saved on the mouse itself, and RigDeck backs them up before its first change
+- This update asks for your password once, to let RigDeck reach your mouse and keyboard
+- New Keyboard page for the Logitech G PRO X TKL RAPID: lighting brightness; actuation and Rapid Trigger aren't adjustable from RigDeck yet
+
 ## 0.3.1 — 2026-10-01
 
 - Install with one line, no git needed: `curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash`
