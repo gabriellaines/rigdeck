@@ -31,7 +31,7 @@ PageScroll {
                 Label { text: "Stops the spinning fan and other animations"; color: theme.muted; font.pixelSize: 12
                         Layout.fillWidth: true }
             }
-            Switch { checked: appState.reduceMotion; onToggled: appState.reduceMotion = checked
+            Toggle { checked: appState.reduceMotion; onToggled: appState.reduceMotion = checked
                      Accessible.name: "Reduce motion" }
         }
     }
@@ -132,7 +132,7 @@ PageScroll {
         RowLayout {
             Layout.fillWidth: true
             Label { text: "Check for updates when RigDeck starts"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
-            Switch { checked: appState.checkUpdatesOnStart; onToggled: appState.checkUpdatesOnStart = checked
+            Toggle { checked: appState.checkUpdatesOnStart; onToggled: appState.checkUpdatesOnStart = checked
                      Accessible.name: "Check for updates when RigDeck starts" }
         }
     }

@@ -10,7 +10,9 @@ Canvas {
     property bool editable: false
     property bool compact: false
     property real tMax: 100
-    property real rpmMax: 3200
+    property real rpmMax: 3200        // y-axis maximum (RPM, or 100 for percent)
+    property real yStep: 800          // grid / label spacing on the y axis
+    property string ySuffix: ""       // e.g. "%"
     property int selected: -1
     signal pointMoved(int index, int t, int rpm)
 
@@ -45,13 +47,13 @@ Canvas {
         // grid
         ctx.strokeStyle = Qt.rgba(theme.text.r, theme.text.g, theme.text.b, 0.08)
         ctx.lineWidth = 1
-        for (let r = 0; r <= rpmMax; r += 800) {
+        for (let r = 0; r <= rpmMax; r += yStep) {
             const y = Math.round(py(r)) + 0.5
             ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(width - padR, y); ctx.stroke()
             if (!compact) {
                 ctx.fillStyle = theme.muted
                 ctx.textAlign = "right"
-                ctx.fillText(r.toString(), padL - 8, y + 4)
+                ctx.fillText(r.toString() + ySuffix, padL - 8, y + 4)
             }
         }
         ctx.strokeStyle = theme.border
@@ -122,8 +124,8 @@ Canvas {
         else if (e.key === Qt.Key_Right && !moving) selected = Math.min(points.length - 1, selected + 1)
         else if (e.key === Qt.Key_Left) pointMoved(selected, p.t - 1, p.rpm)
         else if (e.key === Qt.Key_Right) pointMoved(selected, p.t + 1, p.rpm)
-        else if (e.key === Qt.Key_Up) pointMoved(selected, p.t, p.rpm + 50)
-        else if (e.key === Qt.Key_Down) pointMoved(selected, p.t, p.rpm - 50)
+        else if (e.key === Qt.Key_Up) pointMoved(selected, p.t, p.rpm + rpmMax / 64)
+        else if (e.key === Qt.Key_Down) pointMoved(selected, p.t, p.rpm - rpmMax / 64)
         else return
         e.accepted = true
     }

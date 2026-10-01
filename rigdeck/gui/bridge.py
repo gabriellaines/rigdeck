@@ -25,7 +25,10 @@ def init():
 
 
 def on_main(fn):
-    _invoker.call.emit(fn)
+    try:
+        _invoker.call.emit(fn)
+    except RuntimeError:  # app is shutting down; nobody left to deliver to
+        pass
 
 
 def run_async(fn, done=None, error=None):

@@ -18,3 +18,4 @@ UsageBar 1.0 UsageBar.qml
 ActionLink 1.0 ActionLink.qml
 IconButton 1.0 IconButton.qml
 PageScroll 1.0 PageScroll.qml
+Toggle 1.0 Toggle.qml

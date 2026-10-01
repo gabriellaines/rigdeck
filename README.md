@@ -11,7 +11,8 @@ the only way to control some hardware.
 |---|---|
 | GIGABYTE **AORUS WATERFORCE X II** 240 / 360 / 360 ICE (USB `0414:7a5e`) | ✅ fans, pump, curves, RGB, LCD screen |
 | GIGABYTE AORUS ELITE 240 / 360 AIOs (`0414:7a69`–`7a6c`) | 🧪 same protocol family, untested |
-| AMD GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring · 🛠️ controls planned |
+| GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
+| GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
 
 ## Install
@@ -56,8 +57,23 @@ rigdeck cooler screen rotate 90
 rigdeck cooler screen list                     # ▶ marks what's playing
 rigdeck cooler screen play 3 0 2               # play files 3, 0, 2 in that order (`play 2` = just one)
 rigdeck cooler screen delete old.mkv
+rigdeck gpu status                             # temperatures, fan, zero-RPM, power limit
+rigdeck gpu fan auto --zero-rpm off            # driver curve, but fans never stop
+rigdeck gpu fan curve --curve 40:30 60:50 80:100
+rigdeck gpu power 280                          # watts, or `default`
+rigdeck gpu enable-controls                    # one-time: AMD overdrive, then reboot
 rigdeck update                                 # update to the latest GitHub release
 ```
+
+### GPU controls
+
+RigDeck is a friendly front-end for [LACT](https://github.com/ilya-zlobintsev/LACT)'s background
+service, which applies GPU settings as root and re-applies them after reboot and suspend (it also
+supports NVIDIA and Intel cards). On AMD RDNA3/RDNA4 cards, fan control additionally needs the
+driver's *overdrive* switch: **Graphics → Enable GPU controls** (or `rigdeck gpu enable-controls`)
+turns it on and asks you to reboot. On Limine-based systems (e.g. CachyOS) RigDeck adds the kernel
+option through `/etc/default/limine`, because the initramfs route doesn't apply there.
+Power-limit changes ask you to confirm within a few seconds, or they revert.
 
 Fan and pump modes are saved on the cooler itself. Lighting settings live in
 `~/.config/rigdeck/config.toml` and are applied by the service.

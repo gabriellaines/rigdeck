@@ -106,7 +106,20 @@ if [ "$GUI" = yes ] && ! have_gui_deps; then
     have_gui_deps || warn "GUI libraries still not importable; rigdeck-gui will explain what's missing."
 fi
 
-# 2. the app (own virtualenv; sees system PyGObject) ------------------------------
+# 1b. LACT — optional, powers GPU fan / power controls ------------------------------
+if ! command -v lact >/dev/null; then
+    if [ "$(detect_pm)" = pacman ] && [ -z "$UNATTENDED" ]; then
+        read -rp "Install LACT for GPU fan and power controls? [Y/n] " ans
+        case "${ans:-y}" in
+            [nN]*) ;;
+            *) $SUDO pacman -S --needed --noconfirm lact && $SUDO systemctl enable --now lactd.service ;;
+        esac
+    elif [ "$(detect_pm)" != pacman ]; then
+        warn "Optional: install LACT for GPU controls — https://github.com/ilya-zlobintsev/LACT#installation"
+    fi
+fi
+
+# 2. the app (own virtualenv; sees system PySide6) ---------------------------------
 bold "Installing rigdeck into $VENV"
 rm -rf "$VENV"
 python3 -m venv --system-site-packages "$VENV"

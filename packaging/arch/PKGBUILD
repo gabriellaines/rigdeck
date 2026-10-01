@@ -10,7 +10,8 @@ depends=('python')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 optdepends=('pyside6: graphical app (rigdeck-gui)'
             'qt6-svg: graphical app (rigdeck-gui)'
-            'ffmpeg: uploading GIFs/videos to the cooler screen')
+            'ffmpeg: uploading GIFs/videos to the cooler screen'
+            'lact: GPU fan, zero-RPM and power limit controls')
 install=rigdeck.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')

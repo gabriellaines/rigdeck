@@ -31,3 +31,4 @@ include = ["rigdeck*"]
 "rigdeck.gui" = ["icons/*.svg", "icons/LICENSE-lucide.txt", "qml/*.qml", "qml/pages/*.qml",
                  "qml/RigDeck/*.qml", "qml/RigDeck/qmldir"]
 "rigdeck.modules.waterforce" = ["qml/*.qml"]
+"rigdeck.modules.gpu" = ["qml/*.qml"]
