@@ -8,6 +8,11 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.3.1 — 2026-10-01
+
+- Install with one line, no git needed: `curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash`
+- The installer no longer stops when it can't ask a question; it uses the default answer
+
 ## 0.3.0 — 2026-10-01
 
 ### GPU controls
