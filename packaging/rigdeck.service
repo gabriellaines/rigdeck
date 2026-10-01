@@ -1,0 +1,11 @@
+[Unit]
+Description=rigdeck hardware service (feeds CPU temperature to AIO coolers, runs lighting effects)
+Documentation=https://github.com/YOUR_GITHUB_USER/rigdeck
+
+[Service]
+ExecStart=/usr/bin/rigdeck service
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

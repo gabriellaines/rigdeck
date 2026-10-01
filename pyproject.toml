@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rigdeck"
+dynamic = ["version"]
+description = "Control panel for PC hardware on Linux — AIO coolers today, GPUs next"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.11"
+dependencies = []  # core/CLI is pure standard library
+
+[project.optional-dependencies]
+# Prefer your distro's packages (python-gobject + gtk4 + libadwaita); see README.
+gui = ["PyGObject>=3.48"]
+
+[project.scripts]
+rigdeck = "rigdeck.cli:main"
+
+[project.gui-scripts]
+rigdeck-gui = "rigdeck.gui:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "rigdeck.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["rigdeck*"]
+
+[tool.setuptools.package-data]
+"rigdeck.gui" = ["style.css", "icons/hicolor/scalable/actions/*.svg"]

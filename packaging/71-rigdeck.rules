@@ -1,0 +1,3 @@
+# rigdeck: let the logged-in user talk to supported devices without root.
+# GIGABYTE AORUS WATERFORCE X II (0414:7a5e); AORUS ELITE AIOs (0414:7a69-7a6c, same protocol family).
+KERNEL=="hidraw*", ATTRS{idVendor}=="0414", ATTRS{idProduct}=="7a5e|7a69|7a6a|7a6b|7a6c", TAG+="uaccess"

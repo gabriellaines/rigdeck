@@ -1,0 +1,9 @@
+post_install() {
+    echo ">>> Enable the background service for your user (needed so the cooler gets CPU temperature):"
+    echo ">>>   systemctl --user enable --now rigdeck.service"
+    echo ">>> Re-plug the device or run: sudo udevadm trigger --subsystem-match=hidraw"
+}
+
+post_upgrade() {
+    echo ">>> Restart the service to load the new version: systemctl --user restart rigdeck.service"
+}

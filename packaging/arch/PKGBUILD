@@ -1,0 +1,32 @@
+# Maintainer: YOUR_NAME <YOUR_EMAIL>
+pkgname=rigdeck
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Control panel for PC hardware on Linux (AORUS WATERFORCE X II AIO cooler, more to come)"
+arch=('any')
+url="https://github.com/YOUR_GITHUB_USER/rigdeck"
+license=('GPL-3.0-or-later')
+depends=('python')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+optdepends=('python-gobject: graphical app (rigdeck-gui)'
+            'gtk4: graphical app (rigdeck-gui)'
+            'libadwaita: graphical app (rigdeck-gui)'
+            'ffmpeg: uploading GIFs/videos to the cooler screen')
+install=rigdeck.install
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 packaging/71-rigdeck.rules "$pkgdir/usr/lib/udev/rules.d/71-rigdeck.rules"
+    install -Dm644 packaging/rigdeck.service "$pkgdir/usr/lib/systemd/user/rigdeck.service"
+    install -Dm644 data/io.github.rigdeck.RigDeck.desktop "$pkgdir/usr/share/applications/io.github.rigdeck.RigDeck.desktop"
+    install -Dm644 data/io.github.rigdeck.RigDeck.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.rigdeck.RigDeck.svg"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
