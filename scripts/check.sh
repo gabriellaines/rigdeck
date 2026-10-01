@@ -59,6 +59,17 @@ for cmd in "" info service update cooler gpu "gpu status" "gpu fan" "gpu power" 
 done
 ok "CLI runs"
 
+# 5b. every QML file compiles (needs PySide6; CI installs it, RIGDECK_REQUIRE_QML=1 makes it mandatory)
+set +e
+out=$(python3 scripts/check_qml.py 2>&1); rc=$?
+set -e
+case $rc in
+    0) ok "QML compiles (${out##*$'\n'})" ;;
+    2) [ -z "${RIGDECK_REQUIRE_QML:-}" ] || fail "PySide6 is needed to compile the QML"
+       ok "QML (skipped: PySide6 not installed)" ;;
+    *) printf '%s\n' "$out" >&2; fail "QML errors (see above)" ;;
+esac
+
 # 6. release notes exist for this version ---------------------------------------------
 scripts/release-notes.sh "$version" >/dev/null || fail "CHANGELOG.md needs a '## $version' section"
 ok "CHANGELOG has notes for $version"
