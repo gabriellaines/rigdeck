@@ -8,6 +8,23 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.5.0 — 2026-10-01
+
+- The "Water Cooler" page is now called "Cooler"
+- New Monitors page: brightness (for one monitor or all at once), contrast, color preset, volume and input, for monitors with DDC/CI
+- New Motherboard page: board model, BIOS version, board temperatures and fan headers
+- New Wi-Fi & Bluetooth page: Wi-Fi signal and speed, Ethernet link speed, Bluetooth on/off and the battery levels of your Bluetooth devices
+- The Overview shows Wi-Fi and connected Bluetooth devices too
+- Control ASUS Aura motherboard lighting from the Motherboard page: off, static color, breathing, flashing, color cycle and rainbow, for the board and its RGB and ARGB headers
+- Updating asks for your password once more, to let RigDeck reach the motherboard lighting controller
+- Fixed: pages could stop updating, or keep settings greyed out, after a device didn't answer once (e.g. the headset after changing auto-off, the mouse after switching between cable and receiver)
+- The Mouse page notices plugging, unplugging and switching between cable and receiver within seconds, and switching between mice no longer blanks the page
+- The Overview lists every connected mouse with its battery
+- The mouse and webcam switchers sit side by side instead of one per line
+- The Headset page notices the headset turning on or off within a few seconds
+- Fixed: the headset beeped every few seconds and could ignore setting changes while the RigDeck app was open
+- The headset's auto power-off only offers times the headset supports (up to 30 minutes on the HyperX Cloud II Wireless)
+
 ## 0.4.0 — 2026-10-01
 
 - New Headset page: battery level, hearing yourself (sidetone), turning off when idle and lights, for headsets supported by HeadsetControl such as the HyperX Cloud II Wireless
