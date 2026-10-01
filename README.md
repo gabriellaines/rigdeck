@@ -13,6 +13,7 @@ the only way to control some hardware.
 | GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
+| Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 
 ## Install
 
@@ -84,6 +85,9 @@ rigdeck gpu fan auto --zero-rpm off            # driver curve, but fans never st
 rigdeck gpu fan curve --curve 40:30 60:50 80:100
 rigdeck gpu power 280                          # watts, or `default`
 rigdeck gpu enable-controls                    # one-time: AMD overdrive, then reboot
+rigdeck headset status                         # battery and settings
+rigdeck headset sidetone off                   # or on, or a level 0–128
+rigdeck headset auto-off 30                    # minutes idle before it turns off (0 = never)
 rigdeck update                                 # update to the latest GitHub release
 ```
 

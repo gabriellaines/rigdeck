@@ -118,12 +118,29 @@ ApplicationWindow {
                     spacing: 4
                     Repeater {
                         model: root.pages.filter(p => p.id !== "settings")
-                        NavItem {
-                            iconName: modelData.icon
-                            label: modelData.title
-                            compact: root.compact
-                            current: root.currentId === modelData.id
-                            onClicked: root.navigate(modelData.id)
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            readonly property bool firstPeripheral: modelData.kind === "peripheral"
+                                && root.pages.findIndex(p => p.kind === "peripheral") === index
+                            Label {
+                                visible: parent.firstPeripheral && !root.compact
+                                text: "Peripherals"
+                                color: theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold
+                                Layout.leftMargin: 12; Layout.topMargin: 10
+                            }
+                            Rectangle {  // compact sidebar: a divider instead of the heading
+                                visible: parent.firstPeripheral && root.compact
+                                Layout.fillWidth: true; implicitHeight: 1; color: theme.border
+                                Layout.topMargin: 6; Layout.bottomMargin: 6
+                            }
+                            NavItem {
+                                iconName: modelData.icon
+                                label: modelData.title
+                                compact: root.compact
+                                current: root.currentId === modelData.id
+                                onClicked: root.navigate(modelData.id)
+                            }
                         }
                     }
                     Item { Layout.fillHeight: true }

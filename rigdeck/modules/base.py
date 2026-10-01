@@ -32,7 +32,7 @@ class Module:
     id: str = ""            # CLI command, config table name, GUI page id
     title: str = ""         # human name (sidebar label)
     icon: str = "box"       # icon name from rigdeck/gui/icons (Lucide)
-    kind: str = "device"    # "device" (a gadget you plug in) or "system" (CPU, memory, …)
+    kind: str = "device"    # "device" (cooler…), "peripheral" (mouse, headset…) or "system" (CPU…)
     order: int = 50         # sidebar position
 
     def detect(self) -> bool:

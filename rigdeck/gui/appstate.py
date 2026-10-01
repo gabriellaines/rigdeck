@@ -28,10 +28,11 @@ class AppState(QObject):
     updateChanged = Signal()
     toast = Signal(str)
 
-    def __init__(self, theme, nav: list[dict]):
+    def __init__(self, theme, nav: list[dict], peripherals: list | None = None):
         super().__init__()
         self._theme = theme
         self._nav = nav
+        self._peripherals = peripherals or []
         p = prefs()
         self._reduce_motion = bool(p.get("reduce_motion", False))
         self._check_updates = bool(p.get("check_updates", True))
@@ -46,6 +47,8 @@ class AppState(QObject):
 
     # ---- navigation
     nav = Property("QVariantList", lambda self: self._nav, notify=navChanged)
+    # backends of peripheral modules; each has a `summary` map for the Overview's device list
+    peripherals = Property("QVariantList", lambda self: self._peripherals, notify=navChanged)
     version = Property(str, lambda self: __version__, constant=True)
     repoUrl = Property(str, lambda self: f"https://github.com/{REPO}", constant=True)
 

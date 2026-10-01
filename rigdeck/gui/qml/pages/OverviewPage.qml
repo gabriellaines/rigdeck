@@ -121,7 +121,8 @@ PageScroll {
             Layout.fillHeight: true
             Layout.horizontalStretchFactor: 35
             title: "Devices"
-            subtitle: (page.coolerUp ? 1 : 0) + (page.gpuInfo ? 1 : 0) + " connected"
+            subtitle: (page.coolerUp ? 1 : 0) + (page.gpuInfo ? 1 : 0)
+                      + appState.peripherals.filter(b => b.summary.connected).length + " connected"
             padding: 0
             DeviceRow {
                 visible: page.cool !== null
@@ -141,11 +142,24 @@ PageScroll {
                                        .filter(s => s).join(" · ") : ""
                 status: "Monitoring"
             }
+            Repeater {
+                model: appState.peripherals
+                DeviceRow {
+                    readonly property var s: modelData.summary
+                    icon: s.icon
+                    title: s.title
+                    detail: s.detail
+                    status: s.status
+                    tone: s.tone === "live" ? theme.live : s.tone === "error" ? theme.error : theme.warning
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: root.navigate(parent.s.id) }
+                }
+            }
             DeviceRow {
                 future: true
                 icon: "unplug"
                 title: "More hardware"
-                detail: "Keyboards, mice and audio"
+                detail: "Mice, keyboard and webcam"
                 status: "Soon"
             }
             Item { Layout.fillHeight: true }
