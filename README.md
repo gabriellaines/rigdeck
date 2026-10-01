@@ -14,6 +14,7 @@ the only way to control some hardware.
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
 | Motherboard: model, BIOS, board temperatures, fan headers (Nuvoton `nct6775` / ITE `it87` sensors) | ✅ monitoring · 🛠️ fan control planned |
+| ASUS Aura USB motherboard lighting (`0b05:18f3/1939/19af/1aa6/1bed`): board LEDs, RGB and ARGB headers — off, static, breathing, flashing, color cycle, rainbow | ✅ |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
@@ -98,6 +99,7 @@ rigdeck mouse status                           # battery, DPI stages, polling ra
 rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
 rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
 rigdeck motherboard                            # board, BIOS, temperatures, fan headers
+rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
 rigdeck monitor status                         # every monitor's controls
 rigdeck network                                # Wi-Fi, Ethernet and Bluetooth status
 rigdeck monitor set brightness=40              # all monitors (or --monitor N)

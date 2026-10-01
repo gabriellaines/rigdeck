@@ -11,6 +11,11 @@ PageScroll {
     readonly property bool sensors: (s.chip || "") !== ""
     readonly property var fans: s.fans || []
     readonly property int spinning: fans.filter(f => f.connected).length
+    readonly property var light: motherboard.light
+    readonly property var effects: [["off", "Off"], ["static", "Static"], ["breathing", "Breathing"],
+                                    ["flashing", "Flashing"], ["cycle", "Color cycle"], ["rainbow", "Rainbow"]]
+
+    Connections { target: motherboard; function onToast(m) { root.showToast(m) } }
 
     PageHeader {
         title: [page.b.vendor === "ASUSTeK COMPUTER INC." ? "ASUS" : page.b.vendor, page.b.name].filter(t => t).join(" ")
@@ -80,5 +85,42 @@ PageScroll {
             text: "Header fans follow the BIOS for now. RigDeck will add curves once they can be tested with fans "
                   + "connected — a wrong setting here could stop a CPU fan."
         }
+    }
+
+    // ---- lighting (ASUS Aura)
+    Repeater {
+        model: page.light.zones || []
+        Panel {
+            id: zone
+            readonly property var zn: modelData
+            Layout.fillWidth: true
+            enabled: !motherboard.busy
+            title: "Lighting · " + zn.label
+            subtitle: (zn.mode ? "Kept after restarts" : "The controller can't report its current effect; pick one to take over")
+                      + " · Aura firmware " + page.light.firmware
+            SettingRow {
+                title: "Effect"
+                Segmented {
+                    model: page.effects.map(e => e[1])
+                    currentIndex: page.effects.findIndex(e => e[0] === zone.zn.mode)
+                    onActivated: (ix) => motherboard.setLighting(zone.zn.id, page.effects[ix][0], zone.zn.color)
+                }
+            }
+            SettingRow {
+                visible: ["static", "breathing", "flashing"].indexOf(zone.zn.mode) >= 0
+                title: "Color"
+                ColorSwatches {
+                    current: zone.zn.color
+                    onPicked: (c) => motherboard.setLighting(zone.zn.id, zone.zn.mode, c)
+                }
+            }
+        }
+    }
+    Banner {
+        visible: motherboard.lightError !== ""
+        tone: "error"
+        text: "Lighting controller: " + motherboard.lightError
+        buttonText: "Retry"
+        onClicked: motherboard.refreshLighting()
     }
 }

@@ -140,39 +140,10 @@ PageScroll {
                 title: "Color"
                 enabled: page.currentEffect.usesColor
                 subtitle: enabled ? "" : page.currentEffect.label + " doesn't use a color"
-                Flow {
+                ColorSwatches {
                     Layout.fillWidth: true
-                    spacing: 10
-                    Repeater {
-                        model: ["ff0000", "ff8000", "ffd000", "00ff40", "00c8ff", "0040ff", "a000ff", "ffffff"]
-                        AbstractButton {
-                            width: 30; height: 30
-                            focusPolicy: Qt.StrongFocus
-                            Accessible.name: "Color #" + modelData
-                            ToolTip.visible: hovered; ToolTip.text: "#" + modelData
-                            onClicked: page.sendLed(page.led.effect, modelData, page.led.brightness, page.led.speed)
-                            background: Rectangle {
-                                radius: 15
-                                color: "#" + modelData
-                                border.color: theme.border
-                                Rectangle {
-                                    anchors.fill: parent; anchors.margins: -4; radius: 19; color: "transparent"
-                                    border.width: (page.led.color === modelData || parent.parent.visualFocus) ? 2 : 0
-                                    border.color: theme.accent
-                                }
-                            }
-                        }
-                    }
-                    Button {
-                        text: "Custom…"
-                        icon.source: "image://icons/droplet/" + theme.text.toString().slice(-6)
-                        onClicked: colorDialog.open()
-                    }
-                }
-                ColorDialog {
-                    id: colorDialog
-                    selectedColor: "#" + page.led.color
-                    onAccepted: page.sendLed(page.led.effect, selectedColor.toString().slice(-6), page.led.brightness, page.led.speed)
+                    current: page.led.color
+                    onPicked: (c) => page.sendLed(page.led.effect, c, page.led.brightness, page.led.speed)
                 }
             }
             Panel {

@@ -1,5 +1,5 @@
 """Motherboard: model, BIOS, board temperatures and fan headers, from the Super I/O chip's
-hwmon driver (nct6775 for Nuvoton chips, it87 for ITE). Read-only for now.
+hwmon driver (nct6775 for Nuvoton chips, it87 for ITE), and ASUS Aura USB lighting.
 
 Fan control is deliberately not offered yet: it can only be verified with fans connected to the
 headers, and a wrong write here can leave a CPU fan stopped.
@@ -11,7 +11,9 @@ import os
 import shutil
 import subprocess
 
-from ..base import Module
+from ... import config
+from ..base import Module, RigdeckError
+from . import aura
 
 SUPERIO = ("nct6", "it87", "it86", "it88", "w83")   # hwmon names of Super I/O drivers
 DMI = "/sys/class/dmi/id"
@@ -80,6 +82,37 @@ def read() -> dict:
     return out
 
 
+# ---- lighting (ASUS Aura) ------------------------------------------------------------
+
+def lighting() -> dict | None:
+    """Controller firmware, zones, and what RigDeck last set per zone (the controller can't say)."""
+    node = aura.find()
+    if not node:
+        return None
+    with aura.Aura(node) as a:
+        fw, zones = a.firmware(), a.zones()
+    saved = config.load().get("motherboard", {}).get("lighting", {})
+    for z in zones:
+        z["mode"] = saved.get(z["id"], {}).get("mode", "")
+        z["color"] = saved.get(z["id"], {}).get("color", "ff0000")
+    return {"firmware": fw, "zones": zones}
+
+
+def set_lighting(zone_id: str, mode: str, color: str):
+    node = aura.find()
+    if not node:
+        raise RigdeckError("no ASUS Aura lighting controller found")
+    rgb = config.parse_color(color)
+    with aura.Aura(node) as a:
+        zone = next((z for z in a.zones() if z["id"] == zone_id), None)
+        if zone is None:
+            raise RigdeckError(f"no lighting zone {zone_id!r}")
+        a.set(zone, mode, rgb)
+    cfg = config.load()
+    config.section(cfg, "motherboard", "lighting", zone_id).update(mode=mode, color=color.lstrip("#").lower())
+    config.save(cfg)
+
+
 # ---- CLI ------------------------------------------------------------------------------
 
 def cli_status(a):
@@ -99,6 +132,22 @@ def cli_status(a):
         print(f"  Fan header {f['n']:<19}{state:<10} {f['mode']}" + (f", {f['duty']}% power" if f["duty"] is not None else ""))
 
 
+def cli_lighting(a):
+    info = lighting()
+    if info is None:
+        raise RigdeckError("no ASUS Aura lighting controller found")
+    if a.effect is None:
+        print(f"Aura controller firmware {info['firmware']}")
+        for z in info["zones"]:
+            last = f"{z['mode']} #{z['color']}" if z["mode"] else "not set by RigDeck"
+            print(f"  {z['id']:<8}{z['label']:<30}{last}")
+        return
+    zones = [z["id"] for z in info["zones"]] if a.zone == "all" else [a.zone]
+    for zid in zones:
+        set_lighting(zid, a.effect, a.color)
+    print(f"{', '.join(zones)}: {a.effect}" + (f" #{a.color.lstrip('#')}" if a.effect != "off" else ""))
+
+
 class MotherboardModule(Module):
     id = "motherboard"
     title = "Motherboard"
@@ -110,8 +159,14 @@ class MotherboardModule(Module):
         return os.path.exists(os.path.join(DMI, "board_name"))
 
     def add_cli(self, sub):
-        sub.add_parser("motherboard", help="board, BIOS, board temperatures and fan headers")\
-            .set_defaults(func=cli_status)
+        p = sub.add_parser("motherboard", help="board, BIOS, temperatures, fan headers, lighting")
+        p.set_defaults(func=cli_status)
+        ms = p.add_subparsers(dest="motherboard_cmd")
+        lt = ms.add_parser("lighting", help="ASUS Aura lighting: show zones, or set an effect")
+        lt.add_argument("effect", nargs="?", choices=list(aura.MODES))
+        lt.add_argument("color", nargs="?", default="ff0000", help="RRGGBB (default ff0000)")
+        lt.add_argument("--zone", default="all", help="board, argb1… or all (default)")
+        lt.set_defaults(func=cli_lighting)
 
     def qml_page(self):
         return os.path.join(os.path.dirname(__file__), "qml", "MotherboardPage.qml")

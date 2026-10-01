@@ -6,3 +6,5 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="0414", ATTRS{idProduct}=="7a5e|7a69|7a6a|7a
 KERNEL=="hidraw*", ATTRS{idVendor}=="3554", ATTRS{idProduct}=="f515|f517|f507|f508|f509", TAG+="uaccess"
 # Logitech PRO X TKL RAPID keyboard (046d:c35b), HID++ interface.
 KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c35b", TAG+="uaccess"
+# ASUS Aura USB motherboard lighting controller (0b05:1939).
+KERNEL=="hidraw*", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1939", TAG+="uaccess"
