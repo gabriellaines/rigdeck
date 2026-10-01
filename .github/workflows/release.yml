@@ -1,0 +1,51 @@
+# Every push to main whose version has no tag yet becomes a GitHub release
+# (tag vX.Y.Z, notes from CHANGELOG.md). The app's updater picks it up from there.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # re-run by hand, e.g. after fixing a failed release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the tag and the release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version
+        id: v
+        run: |
+          v=$(scripts/version.sh)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+            echo "::notice::v$v already released; nothing to publish (bump the version to release)"
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish v${{ steps.v.outputs.version }}
+        if: steps.v.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          scripts/release-notes.sh "$V" > notes.md
+          gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md --latest
+          echo "::notice::Published https://github.com/${{ github.repository }}/releases/tag/v$V"

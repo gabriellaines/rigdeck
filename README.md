@@ -1,8 +1,7 @@
 # rigdeck
 
 A lightweight control panel for PC hardware on Linux — as a **command-line tool** and a
-**Qt 6 / QML desktop app** in a calm, Breeze-style design (dark and light). Both are always
-installed; use whichever you like.
+**Qt 6 / QML desktop app** in a calm, Breeze-style design (dark and light). Use whichever you like.
 
 Built because vendor tools (GIGABYTE Control Center, …) are Windows-only, heavy, and
 the only way to control some hardware.
@@ -17,21 +16,44 @@ the only way to control some hardware.
 
 ## Install
 
+Open a terminal, paste this line and press Enter:
+
 ```sh
-git clone https://github.com/gabriellaines/rigdeck
-cd rigdeck
-./install.sh            # asks whether you want the graphical app
+curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash
 ```
 
-Options: `./install.sh --gui`, `./install.sh --cli-only`, `./install.sh --uninstall`.
-Changed your mind later? Run `./install.sh --gui` again to add the app.
+It downloads the latest release, asks for your password once (to install system packages and
+give your user access to the cooler), and asks whether you want the graphical app — press
+Enter for yes. When it finishes, open **RigDeck** from your app menu. Updates are offered
+inside the app from then on.
 
-The installer works on Arch / CachyOS / Manjaro, Fedora, Debian / Ubuntu and openSUSE. It:
+Works on Arch / CachyOS / Manjaro, Fedora, Debian / Ubuntu and openSUSE. If `curl` is
+missing, install it with your package manager first (e.g. `sudo apt install curl`).
+
+<details>
+<summary>Options, uninstalling, and what the installer changes</summary>
+
+Pass options after `bash -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash -s -- --gui        # app, no questions
+curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash -s -- --cli-only   # terminal tool only
+curl -fsSL https://raw.githubusercontent.com/gabriellaines/rigdeck/main/get.sh | bash -s -- --uninstall  # remove (keeps your settings)
+```
+
+`RIGDECK_VERSION=v0.3.0` before `bash` installs a specific release. From a git checkout,
+`./install.sh` takes the same options.
+
+The installer:
 
 1. installs Python ≥ 3.11 and ffmpeg (and Qt 6 for Python — PySide6 — if you want the app) from your distro,
 2. installs rigdeck into `~/.local` (its own virtualenv — nothing touches system Python),
-3. adds a **udev rule** so your user can talk to the cooler without root (asks for `sudo` once),
-4. enables the **`rigdeck` user service**.
+3. adds a **udev rule** so your user can talk to the cooler without root,
+4. enables the **`rigdeck` user service**,
+5. on Arch-based systems, offers to install [LACT](https://github.com/ilya-zlobintsev/LACT) for GPU
+   fan and power controls (elsewhere, see LACT's [installation guide](https://github.com/ilya-zlobintsev/LACT#installation)).
+
+</details>
 
 **Arch / AUR:** a `PKGBUILD` is in [`packaging/arch`](packaging/arch). After installing the
 package run `systemctl --user enable --now rigdeck`.
@@ -88,7 +110,7 @@ has **Cooling** (modes + drag-to-edit curve), **Lighting** (effects, color, brig
 Open a page directly with `rigdeck-gui --page cooler`.
 
 **Updates:** RigDeck checks GitHub for a new release when it starts (turn off in Settings).
-If you installed with `install.sh`, *Settings → Update now* downloads and installs it; with the
+If you installed with the command above, *Settings → Update now* downloads and installs it; with the
 AUR package, update through your package manager.
 
 ## Notes
@@ -106,6 +128,21 @@ Each device is a module in `rigdeck/modules/` implementing `Module`
 GUI page (a QML file + a Qt backend object exposed under the module's id). The sidebar is built
 from the registered modules. Shared QML components (metric cards, panels, device rows, curve
 chart…) live in `rigdeck/gui/qml/RigDeck`.
+
+## Development and releases
+
+The full process is in [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+
+
+- Work happens on **`develop`**; `main` always matches the latest release.
+- End each commit that changes something users notice with a trailer line written for them, e.g.
+  `Changelog: GPU fans can now stop when the card is cool`. These lines become the release notes
+  ([`CHANGELOG.md`](CHANGELOG.md)); preview them with `scripts/unreleased.sh`.
+- `scripts/check.sh` runs the same validations as CI (GitHub Actions runs them on every push to
+  `develop` and every pull request).
+- **To release:** on `develop` run `scripts/bump-version.sh X.Y.Z`, commit and push, then open a
+  pull request `develop → main`. Merging it publishes release `vX.Y.Z` with the changelog section
+  as its notes, and the app's updater offers it to everyone.
 
 ## License
 
