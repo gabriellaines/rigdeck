@@ -146,6 +146,7 @@ class HeadsetModule(Module):
     icon = "headphones"
     kind = "peripheral"
     order = 60
+    bluetooth = ("headset",)
 
     def detect(self) -> bool:
         return hc.present()

@@ -19,7 +19,8 @@ the only way to control some hardware.
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
 | Monitors over DDC/CI (via [ddcutil](https://www.ddcutil.com)): brightness (one or all), contrast, color preset, input, volume | ✅ (needs ddcutil) |
-| Wi-Fi, Ethernet and Bluetooth status (NetworkManager / BlueZ), Bluetooth device batteries | ✅ |
+| Network: Ethernet and Wi-Fi adapters, addresses, live traffic, nearby networks (NetworkManager) | ✅ |
+| Bluetooth devices with battery (BlueZ), also on their own pages (headphones on Headset, …) | ✅ |
 | Webcams (any UVC camera, e.g. Logitech C920): brightness, white balance, exposure, focus, zoom, live preview | ✅ |
 
 ## Install
@@ -101,7 +102,8 @@ rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
 rigdeck motherboard                            # board, BIOS, temperatures, fan headers
 rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
 rigdeck monitor status                         # every monitor's controls
-rigdeck network                                # Wi-Fi, Ethernet and Bluetooth status
+rigdeck network                                # Ethernet, Wi-Fi and Bluetooth status
+rigdeck bluetooth                              # adapters and your Bluetooth devices
 rigdeck monitor set brightness=40              # all monitors (or --monitor N)
 rigdeck webcam status                          # all controls and their values
 rigdeck webcam set brightness=140 focus_automatic_continuous=off

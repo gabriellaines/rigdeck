@@ -273,6 +273,7 @@ class MouseModule(Module):
     icon = "mouse"
     kind = "peripheral"
     order = 62
+    bluetooth = ("mouse",)
 
     def detect(self) -> bool:
         return bool(connected())

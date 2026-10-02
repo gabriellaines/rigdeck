@@ -34,6 +34,9 @@ class Module:
     icon: str = "box"       # icon name from rigdeck/gui/icons (Lucide)
     kind: str = "device"    # "device" (cooler…), "peripheral" (mouse, headset…) or "system" (CPU…)
     order: int = 50         # sidebar position
+    # Bluetooth device categories (see rigdeck/bluez.py) that make this page appear even when
+    # detect() finds nothing, e.g. ("headset",); ("*",) = any connected Bluetooth device.
+    bluetooth: tuple = ()
 
     def detect(self) -> bool:
         """Is this hardware present?"""

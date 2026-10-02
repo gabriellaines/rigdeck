@@ -8,6 +8,7 @@ PageScroll {
     property bool shown: true
     readonly property var s: keyboard.state
     readonly property bool ok: keyboard.status === "ok"
+    readonly property int bt: bluez.devices.filter(d => d.connected && d.category === "keyboard").length
 
     Connections { target: keyboard; function onToast(m) { root.showToast(m) } }
 
@@ -19,7 +20,7 @@ PageScroll {
     }
 
     Banner {
-        visible: keyboard.status === "none"
+        visible: keyboard.status === "none" && page.bt === 0
         text: "No supported keyboard found. Supported: Logitech G PRO X TKL RAPID (USB)."
     }
     Banner {
@@ -80,4 +81,6 @@ PageScroll {
             onClicked: appState.openUrl("https://www.logitech.com/assets/70228/g_pro_x_tkl_rapid.pdf")
         }
     }
+
+    BluetoothDevices { category: "keyboard"; label: "Bluetooth keyboards" }
 }

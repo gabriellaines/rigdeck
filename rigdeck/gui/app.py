@@ -13,6 +13,7 @@ from .. import APP_ID, __version__, config
 from ..modules import MODULES
 from . import bridge
 from .appstate import AppState, prefs
+from .bluez import BluezWatcher
 from .icons import IconProvider
 from .system import SystemBackend
 from .theme import Theme
@@ -33,7 +34,9 @@ def _navigation(ctx, keep: list, peripherals: list) -> list[dict]:
             continue
         present = m.detect()
         pluggable = m.kind in ("device", "peripheral")
-        if pluggable and not present and m.id not in seen:
+        # static: always in the sidebar; otherwise only while a matching Bluetooth device is connected
+        static = (present or m.id in seen) if pluggable else (present if m.bluetooth == ("*",) else True)
+        if not static and not m.bluetooth:
             continue
         if pluggable and present and m.id not in seen:
             seen.add(m.id)
@@ -43,10 +46,10 @@ def _navigation(ctx, keep: list, peripherals: list) -> list[dict]:
         if backend is not None:
             keep.append(backend)
             ctx.setContextProperty(m.id, backend)
-            if m.kind == "peripheral":
-                peripherals.append(backend)
-        nav.append({"id": m.id, "title": m.title, "icon": m.icon, "kind": m.kind,
-                    "page": QUrl.fromLocalFile(page).toString()})
+            if hasattr(backend, "summary") or hasattr(backend, "summaries"):
+                peripherals.append(backend)          # rows in the Overview's device list
+        nav.append({"id": m.id, "title": m.title, "icon": m.icon, "kind": m.kind, "static": static,
+                    "bt": list(m.bluetooth), "page": QUrl.fromLocalFile(page).toString()})
     return nav
 
 
@@ -76,9 +79,12 @@ def run(argv: list[str]) -> int:
     keep.append(system)
     ctx.setContextProperty("theme", theme)
     ctx.setContextProperty("system", system)
+    bluez = BluezWatcher()       # shared by the Bluetooth page, category pages and the sidebar
+    keep.append(bluez)
+    ctx.setContextProperty("bluez", bluez)
     peripherals: list = []
     nav = _navigation(ctx, keep, peripherals)
-    state = AppState(theme, nav, peripherals)
+    state = AppState(theme, nav, peripherals + [bluez])
     keep.append(state)
     ctx.setContextProperty("appState", state)
     ctx.setContextProperty("startPage", start_page)

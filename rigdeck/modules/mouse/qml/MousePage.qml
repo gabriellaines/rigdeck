@@ -10,6 +10,7 @@ PageScroll {
     readonly property bool ok: mouse.status === "ok"
     readonly property bool known: s.stages !== undefined     // last known settings, also while asleep
     readonly property var b: s.battery || null
+    readonly property int bt: bluez.devices.filter(d => d.connected && d.category === "mouse").length
 
     // DPI edits stay local until Apply (each write wears the mouse's flash a little)
     property var draft: []
@@ -52,7 +53,7 @@ PageScroll {
               + (page.known ? " Showing its last known settings." : "")
     }
     Banner {
-        visible: mouse.status === "none"
+        visible: mouse.status === "none" && page.bt === 0
         text: "No supported mouse found. Supported: Pulsar Xlite V3 and Attack Shark X11 Ultra (wireless receiver or cable)."
     }
     Banner {
@@ -227,4 +228,6 @@ PageScroll {
             Button { text: "Back up now"; onClicked: mouse.backupNow() }
         }
     }
+
+    BluetoothDevices { category: "mouse"; label: "Bluetooth mice" }
 }
