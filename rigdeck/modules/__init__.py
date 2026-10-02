@@ -11,10 +11,10 @@ from .motherboard import MotherboardModule
 from .mouse import MouseModule
 from .network import NetworkModule
 from .webcam import WebcamModule
-from .system import MemoryModule, ProcessorModule, StorageModule
+from .system import MemoryModule, ProcessorModule, ResourcesModule, StorageModule
 from .waterforce import WaterforceModule
 
-MODULES: list[Module] = [WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
+MODULES: list[Module] = [ResourcesModule(), WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
                          StorageModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
                          MonitorModule(), MotherboardModule(),
                          NetworkModule(), BluetoothModule()]

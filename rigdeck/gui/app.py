@@ -14,6 +14,7 @@ from ..modules import MODULES
 from . import bridge
 from .appstate import AppState, prefs
 from .bluez import BluezWatcher
+from .resources import ResourceMonitor
 from .icons import IconProvider
 from .system import SystemBackend
 from .theme import Theme
@@ -79,6 +80,9 @@ def run(argv: list[str]) -> int:
     keep.append(system)
     ctx.setContextProperty("theme", theme)
     ctx.setContextProperty("system", system)
+    monitor = ResourceMonitor()  # a minute of CPU / memory / disk / network / GPU history
+    keep.append(monitor)
+    ctx.setContextProperty("usage", monitor)   # not "resources" (every QML item has one) nor "monitor" (the Monitors module)
     bluez = BluezWatcher()       # shared by the Bluetooth page, category pages and the sidebar
     keep.append(bluez)
     ctx.setContextProperty("bluez", bluez)
