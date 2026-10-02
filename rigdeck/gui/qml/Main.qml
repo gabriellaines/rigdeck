@@ -35,7 +35,17 @@ ApplicationWindow {
                                  .concat([{ id: "settings", title: "Settings", icon: "settings",
                                             page: Qt.resolvedUrl("pages/SettingsPage.qml") }])
 
+    // Sidebar sections, in this order; pages not listed go by kind (peripherals -> Devices)
+    readonly property var sectionOrder: ["", "Monitoring", "Hardware", "Devices"]
+    readonly property var placement: ({ overview: ["", 0], resources: ["Monitoring", 0], gamemon: ["Monitoring", 1],
+        cpu: ["Hardware", 0], gpu: ["Hardware", 1], memory: ["Hardware", 2], storage: ["Hardware", 3],
+        motherboard: ["Hardware", 4], cooler: ["Hardware", 5], network: ["Hardware", 6], bluetooth: ["Hardware", 7],
+        keyboard: ["Devices", 0], mouse: ["Devices", 1], headset: ["Devices", 2], monitor: ["Devices", 3],
+        webcam: ["Devices", 4] })
+    function sectionOf(p) { return (placement[p.id] || [p.kind === "peripheral" ? "Devices" : "Hardware", 99])[0] }
+    function rankOf(p) { return sectionOrder.indexOf(sectionOf(p)) * 100 + (placement[p.id] || ["", 99])[1] }
     readonly property var sidebarPages: pages.filter(p => p.id !== "settings" && inSidebar(p))
+                                             .sort((a, b) => rankOf(a) - rankOf(b))
     // Pages whose device may only be connected through Bluetooth appear while it is.
     function inSidebar(p) {
         if (p.static !== false) return true
@@ -134,11 +144,12 @@ ApplicationWindow {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 4
-                            readonly property bool firstPeripheral: modelData.kind === "peripheral"
-                                && root.sidebarPages.findIndex(p => p.kind === "peripheral") === index
+                            readonly property string section: root.sectionOf(modelData)
+                            readonly property bool firstPeripheral: section !== ""
+                                && (index === 0 || root.sectionOf(root.sidebarPages[index - 1]) !== section)
                             Label {
                                 visible: parent.firstPeripheral && !root.compact
-                                text: "Peripherals"
+                                text: parent.section
                                 color: theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold
                                 Layout.leftMargin: 12; Layout.topMargin: 10
                             }
