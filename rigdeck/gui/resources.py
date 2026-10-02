@@ -6,10 +6,12 @@ import os
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal
 
-from .. import resources
+from .. import disk_health, resources, spd
+from .bridge import run_async
 
 HISTORY = 60      # samples kept (one per second)
 INTERVAL_MS = 1000
+HEALTH_MS = 5 * 60 * 1000   # SMART changes slowly
 
 
 def _push(series: list, value):
@@ -29,6 +31,23 @@ class ResourceMonitor(QObject):
         self._h: dict = {"cpu": [], "cores": [], "memory": [], "disks": {}, "nets": {}, "gpus": {}}
         self._now: dict = {}
         QTimer(self, interval=INTERVAL_MS, timeout=self._tick).start()
+        try:
+            self._modules = spd.modules()
+        except OSError:
+            self._modules = []
+        self._health: dict = {}
+        QTimer(self, interval=HEALTH_MS, timeout=self._read_health).start()
+        self._read_health()
+
+    healthChanged = Signal()
+
+    def _read_health(self):
+        disks = list(self._disk_info)
+        run_async(lambda: {d: disk_health.health(d) for d in disks}, self._got_health)
+
+    def _got_health(self, h):
+        self._health = {k: v for k, v in h.items() if v}
+        self.healthChanged.emit()
 
     def _tick(self):
         s = self._sampler.sample()   # a dozen small /proc and /sys reads: fine on the UI thread
@@ -65,3 +84,6 @@ class ResourceMonitor(QObject):
     now = Property("QVariantMap", lambda self: self._now, notify=changed)
     specs = Property("QVariantMap", lambda self: self._specs, constant=True)
     historyLength = Property(int, lambda self: HISTORY, constant=True)
+    modules = Property("QVariantList", lambda self: self._modules, constant=True)
+    health = Property("QVariantMap", lambda self: self._health, notify=healthChanged)
+    disks = Property("QVariantMap", lambda self: self._disk_info, notify=changed)

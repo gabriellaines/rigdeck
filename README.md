@@ -14,7 +14,8 @@ the only way to control some hardware.
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Resources: live CPU, memory, disk, network and GPU graphs (like Task Manager's Performance tab) | ✅ |
 | Processor: per-thread load graphs, clocks, caches, virtualization, instruction sets, frequency driver | ✅ |
-| Memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
+| Memory: modules from their SPD chips (maker, part number, size, XMP rating), usage history, zram | ✅ |
+| Storage: live read/write, SMART health via UDisks2 (NVMe wear, data written, power-on hours; SATA bad sectors) | ✅ |
 | Motherboard: model, BIOS, board temperatures, fan headers (Nuvoton `nct6775` / ITE `it87` sensors) | ✅ monitoring · 🛠️ fan control planned |
 | ASUS Aura USB motherboard lighting (`0b05:18f3/1939/19af/1aa6/1bed`): board LEDs, RGB and ARGB headers — off, static, breathing, flashing, color cycle, rainbow | ✅ |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
