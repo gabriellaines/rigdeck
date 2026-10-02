@@ -172,11 +172,13 @@ class MouseBackend(QObject):
             b = s.get("battery") or {}
             status = {"ok": "Connected", "asleep": "Asleep", "loading": "…", "error": "Not answering",
                       "none": ""}[st]
-            if b and st in ("ok", "asleep") and not s.get("asleep"):
+            awake_battery = bool(b) and not s.get("asleep")   # known from the background battery read
+            if awake_battery:
                 status = f"{b['level']}% battery" + (" · charging" if b.get("charging") else "")
             rows.append({"id": "mouse", "icon": "mouse", "title": s.get("name") or MODELS[d["model"]]["name"],
                          "detail": MODELS[d["model"]]["pids"][d["pid"]].capitalize(), "status": status,
-                         "connected": st in ("ok", "asleep"), "tone": "live" if st == "ok" or b else "warning",
+                         "connected": st in ("ok", "asleep") or awake_battery,
+                         "tone": "live" if st == "ok" or awake_battery else "warning",
                          "battery": b.get("level")})
         return rows
 
