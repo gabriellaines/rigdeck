@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .base import Module
 from .bluetooth import BluetoothModule
+from .gamemon import GameMonitorModule
 from .gpu import GpuModule
 from .headset import HeadsetModule
 from .keyboard import KeyboardModule
@@ -14,7 +15,7 @@ from .webcam import WebcamModule
 from .system import MemoryModule, ProcessorModule, ResourcesModule, StorageModule
 from .waterforce import WaterforceModule
 
-MODULES: list[Module] = [ResourcesModule(), WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
+MODULES: list[Module] = [ResourcesModule(), GameMonitorModule(), WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
                          StorageModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
                          MonitorModule(), MotherboardModule(),
                          NetworkModule(), BluetoothModule()]
