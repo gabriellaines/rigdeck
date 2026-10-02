@@ -1,11 +1,11 @@
-"""`keyboard` in QML: identity and lighting brightness."""
+"""`keyboard` in QML: identity, lighting brightness, analog settings (read-only)."""
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
-from . import BRIGHTNESS_PRESETS, connected, read_state, set_brightness
+from . import BRIGHTNESS_PRESETS, analog_state, connected, read_state, set_brightness
 
 POLL_MS = 10000   # picks up brightness changed with the Fn key
 
@@ -22,6 +22,8 @@ class KeyboardBackend(QObject):
         self._error = ""
         self._busy = False
         self._reading = False
+        self._analog: list = []
+        self._analog_status = "idle"   # idle | loading | ok | error
         self._timer = AdaptiveTimer(self, self.refresh, page="keyboard", page_ms=POLL_MS, visible_ms=60000)
         self.refresh()
 
@@ -39,15 +41,44 @@ class KeyboardBackend(QObject):
             self._reading = False
             self._dev, st = r
             self._state = st or {}
+            if not st:
+                self._analog, self._analog_status = [], "idle"     # read again when it's back
             self._status = "ok" if st else "none"
             self._error = ""
             self.stateChanged.emit()
+            if st and self._analog_status == "idle":
+                self.refreshAnalog()
 
         def failed(e):
             self._reading = False
             self._status, self._error = "error", str(e)
             self.stateChanged.emit()
         run_async(read, got, failed)
+
+    # ---- analog settings: ~150 small reads, so once per connection and on demand, not polled
+
+    analogChanged = Signal()
+
+    @Slot()
+    def refreshAnalog(self):
+        if self._analog_status == "loading" or not self._dev:
+            return
+        self._analog_status = "loading"
+        self.analogChanged.emit()
+        dev = self._dev
+
+        def got(profiles):
+            self._analog, self._analog_status = profiles, "ok"
+            self.analogChanged.emit()
+
+        def failed(e):
+            self._analog_status = "error"
+            self.toast.emit(f"Could not read the analog settings: {e}")
+            self.analogChanged.emit()
+        run_async(lambda: analog_state(dev), got, failed)
+
+    analog = Property("QVariantList", lambda self: self._analog, notify=analogChanged)
+    analogStatus = Property(str, lambda self: self._analog_status, notify=analogChanged)
 
     state = Property("QVariantMap", lambda self: self._state, notify=stateChanged)
     status = Property(str, lambda self: self._status, notify=stateChanged)

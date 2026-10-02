@@ -1,15 +1,15 @@
-"""Logitech G keyboards over HID++ 2.0 (USB): identity and lighting brightness.
+"""Logitech G keyboards over HID++ 2.0 (USB): identity, lighting brightness, analog settings.
 
-Supported: PRO X TKL RAPID (046d:c35b). Its analog settings (actuation point, Rapid Trigger)
-use a feature no public project documents yet (0x1b08); until it's decoded, they're set on the
-keyboard itself (Fn+F5 custom analog profile), which RigDeck explains on the page.
+Supported: PRO X TKL RAPID (046d:c35b). Its analog settings (actuation point, Rapid Trigger) are
+shown read-only per onboard profile (see analog.py); changing them is still done on the keyboard
+itself (Fn+F5 custom analog profile), which RigDeck explains on the page.
 """
 from __future__ import annotations
 
 import os
 
 from ..base import Module, RigdeckError
-from . import hidpp
+from . import analog, hidpp
 from .hidpp import HidppError
 
 MODELS = {0xC35B: "Logitech G PRO X TKL RAPID"}
@@ -42,6 +42,20 @@ def set_brightness(dev: dict, value: int):
         k.feature(hidpp.BRIGHTNESS, 2, int(value).to_bytes(2, "big"))
 
 
+def analog_state(dev: dict) -> list[dict]:
+    """Per onboard profile: actuation and Rapid Trigger, keys grouped by value (for display)."""
+    every = len(analog.KEYS)
+
+    def groups(values):
+        return [{"value": v, "keys": names, "all": len(names) == every} for v, names in analog.summary(values)]
+    out = []
+    for p in analog.read_profiles(dev["node"]):
+        name = "" if p["name"].startswith("PROFILE_NAM") else p["name"]    # G HUB's placeholder
+        out.append({"index": p["index"], "keys": p["keys"], "name": name, "actuation": groups(p["actuation"]),
+                    "rapidTrigger": groups(p["rapidTrigger"])})
+    return out
+
+
 # ---- CLI ------------------------------------------------------------------------------
 
 def _pick() -> dict:
@@ -64,6 +78,17 @@ def cli_brightness(a):
     print(f"brightness {a.percent}%")
 
 
+def cli_analog(a):
+    for p in analog_state(_pick()):
+        print(f"Profile {p['index']} ({p['keys']})" + (f"  {p['name']}" if p["name"] else ""))
+        for label, groups in (("Actuation", p["actuation"]), ("Rapid Trigger", p["rapidTrigger"])):
+            if not groups:
+                print(f"  {label:<15}off")
+            for i, g in enumerate(groups):
+                keys = "all keys" if g["all"] else ", ".join(g["keys"])
+                print(f"  {label if i == 0 else '':<15}{g['value']:<8}{keys}")
+
+
 def cli_features(a):
     with hidpp.Device(_pick()["node"]) as k:
         for fid, flags, ver in k.features():
@@ -83,12 +108,14 @@ class KeyboardModule(Module):
         return bool(connected())
 
     def add_cli(self, sub):
-        p = sub.add_parser("keyboard", help="Logitech G keyboard: lighting brightness")
+        p = sub.add_parser("keyboard", help="Logitech G keyboard: lighting brightness, analog settings")
         ks = p.add_subparsers(dest="keyboard_cmd", required=True)
         ks.add_parser("status", help="model, firmware, brightness").set_defaults(func=cli_status)
         b = ks.add_parser("brightness", help="lighting brightness in percent (0 = off)")
         b.add_argument("percent", type=int)
         b.set_defaults(func=cli_brightness)
+        ks.add_parser("analog", help="actuation points and Rapid Trigger of each onboard profile")\
+            .set_defaults(func=cli_analog)
         ks.add_parser("features", help="list the keyboard's HID++ features (for developers)")\
             .set_defaults(func=cli_features)
 
