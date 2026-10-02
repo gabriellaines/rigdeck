@@ -101,7 +101,7 @@ PageScroll {
         visible: page.known
         enabled: page.ok && !mouse.busy
         title: "Sensitivity (DPI)"
-        subtitle: "The DPI button on the mouse cycles through these stages; the light shows which one is active"
+        subtitle: "The DPI button on the mouse steps through these; its light shows which one is active"
         SettingRow {
             title: "Number of stages"
             Segmented {
@@ -128,8 +128,8 @@ PageScroll {
                     onValueModified: { const d = page.draft.slice(); d[stageRow.n] = value; page.draft = d }
                 }
                 Button {
-                    text: "Use"
-                    enabled: stageRow.n !== page.s.currentStage && stageRow.n < page.s.stageCount
+                    text: "Switch to this"
+                    visible: stageRow.n !== page.s.currentStage && stageRow.n < page.s.stageCount
                     onClicked: mouse.setCurrentStage(stageRow.n)
                 }
             }
@@ -302,17 +302,12 @@ PageScroll {
         }
     }
 
-    Panel {
+    RowLayout {
         Layout.fillWidth: true
         visible: page.known
-        title: "Backup"
-        subtitle: "RigDeck saves the mouse's settings before its first change; backups are in ~/.local/share/rigdeck/mouse-backups"
-        RowLayout {
-            Layout.fillWidth: true
-            Label { text: "Restore one with: rigdeck mouse restore FILE"; color: theme.muted; font.pixelSize: 12
-                    Layout.fillWidth: true }
-            Button { text: "Back up now"; onClicked: mouse.backupNow() }
-        }
+        Label { text: "RigDeck keeps a copy of the mouse's settings from before its first change."
+                color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+        Button { text: "Back up now"; onClicked: mouse.backupNow() }
     }
 
     BluetoothDevices { category: "mouse"; label: "Bluetooth mice" }

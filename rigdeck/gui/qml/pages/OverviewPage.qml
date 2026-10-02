@@ -47,13 +47,13 @@ PageScroll {
         uniformCellWidths: true
         MetricCard {
             Layout.fillWidth: true
-            icon: "thermometer"; label: "CPU package"
+            icon: "thermometer"; label: "CPU temperature"
             value: page.fmt(page.live.cpuTemp); unit: "°C"
             detail: page.info.cpu ? page.info.cpu.name : ""
         }
         MetricCard {
             Layout.fillWidth: true
-            icon: "monitor"; label: "GPU core"
+            icon: "monitor"; label: "GPU temperature"
             value: page.fmt(page.gpu.temp_edge); unit: "°C"
             detail: page.gpuName()
         }
@@ -83,51 +83,6 @@ PageScroll {
             Layout.fillHeight: true
             Layout.horizontalStretchFactor: 62
             spacing: 16
-
-            Panel {
-                Layout.fillWidth: true
-                title: "Cooling"
-                subtitle: page.cool ? page.cool.identity.model : "No supported cooler"
-                actionText: page.cool ? "Open controls" : ""
-                onActionClicked: root.navigate("cooler")
-                RowLayout {
-                    visible: page.cool !== null
-                    spacing: 20
-                    Layout.fillWidth: true
-                    Card {
-                        color: "transparent"
-                        implicitWidth: 180
-                        implicitHeight: 210
-                        FanSpinner {
-                            anchors.centerIn: parent
-                            rpm: page.coolerUp ? page.cool.live.fan : null
-                            // the spinning animation is the costliest thing on screen: only while seen
-                            visible: page.shown && root.visible && root.visibility !== Window.Minimized
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        RowLayout {
-                            Label { text: "Fan curve"; color: theme.muted; font.pixelSize: 14; Layout.fillWidth: true }
-                            Chip { label: page.cool ? page.cool.fanModeName : "" }
-                        }
-                        CurveChart {
-                            Layout.fillWidth: true
-                            compact: true
-                            points: page.cool ? page.cool.fanCurve : []
-                            tMax: 90
-                        }
-                    }
-                }
-                Label {
-                    visible: page.cool === null
-                    text: "Connect a supported AIO cooler (GIGABYTE AORUS WATERFORCE X II) to control it here."
-                    color: theme.muted
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-            }
 
             // live usage: takes the height left over, so this column ends level with the device list
             Panel {
@@ -182,37 +137,6 @@ PageScroll {
                 }
             }
 
-            GridLayout {
-                Layout.fillWidth: true
-                columns: page.pageWidth >= 760 ? 3 : 1
-                columnSpacing: 12
-                rowSpacing: 12
-                uniformCellWidths: true
-                InfoCard {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    icon: "cpu"; title: "Processor"
-                    primary: page.info.cpu ? page.info.cpu.name : ""
-                    lines: page.info.cpu ? [page.info.cpu.cores + " cores · " + page.info.cpu.threads + " threads",
-                                            page.fmt(page.live.cpuMhz / 1000, 2) + " GHz current"] : []
-                }
-                InfoCard {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    icon: "monitor"; title: "Graphics"
-                    primary: page.gpuName()
-                    lines: page.gpuInfo ? [page.gpuInfo.vram_gb ? page.gpuInfo.vram_gb + " GB VRAM" : "",
-                                           "Vulkan " + (page.gpuInfo.vulkan_api || "?").split(".").slice(0, 2).join(".")
-                                           + " · " + (page.gpuInfo.vulkan_driver || "").toUpperCase()] : []
-                }
-                InfoCard {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    icon: "box"; title: "Software"
-                    primary: "RigDeck service " + (appState.serviceState === "active" ? "active" : appState.serviceState)
-                    lines: [page.info.mesa ? "Mesa " + page.info.mesa : "Mesa unknown", page.info.session || ""]
-                }
-            }
         }
 
         Panel {

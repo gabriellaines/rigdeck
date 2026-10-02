@@ -25,3 +25,6 @@ BluetoothDevices 1.0 BluetoothDevices.qml
 HistoryChart 1.0 HistoryChart.qml
 Button 1.0 Button.qml
 Slider 1.0 Slider.qml
+TextField 1.0 TextField.qml
+SpinBox 1.0 SpinBox.qml
+ComboBox 1.0 ComboBox.qml

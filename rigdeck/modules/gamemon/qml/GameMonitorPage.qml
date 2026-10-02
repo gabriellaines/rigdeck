@@ -87,6 +87,13 @@ PageScroll {
                                maxValue: 110; length: 120 }
             }
         }
+        Label {
+            visible: gamemon.mangohud === "ready"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: theme.muted; font.pixelSize: 12
+            text: "For FPS and frame times, launch games with MangoHud (Steam: launch option  mangohud %command%)."
+        }
     }
 
     // ---- frames (MangoHud)
@@ -106,13 +113,6 @@ PageScroll {
         visible: gamemon.mangohud === "missing"
         tone: "info"
         text: "Install MangoHud (sudo pacman -S mangohud lib32-mangohud) to add FPS and frametimes to your sessions."
-    }
-    Label {
-        visible: gamemon.mangohud === "ready"
-        Layout.fillWidth: true
-        wrapMode: Text.WordWrap
-        color: theme.muted; font.pixelSize: 12
-        text: "MangoHud logs every frame for RigDeck. Games launched with  mangohud %command%  (Steam launch options) get FPS and frametimes in their sessions."
     }
 
     // ---- sessions
