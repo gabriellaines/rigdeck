@@ -13,6 +13,7 @@ the only way to control some hardware.
 | GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Resources: live CPU, memory, disk, network and GPU graphs (like Task Manager's Performance tab) | ✅ |
+| Game monitor: record CPU, GPU, memory and disk telemetry while you play (like CapFrameX); FPS, frametimes and 1% / 0.1% lows via MangoHud logs | ✅ |
 | Processor: per-thread load graphs, clocks, caches, virtualization, instruction sets, frequency driver | ✅ |
 | Memory: modules from their SPD chips (maker, part number, size, XMP rating), usage history, zram | ✅ |
 | Storage: live read/write, SMART health via UDisks2 (NVMe wear, data written, power-on hours; SATA bad sectors) | ✅ |
@@ -103,6 +104,8 @@ rigdeck headset auto-off 30                    # minutes idle before it turns of
 rigdeck mouse status                           # battery, DPI stages, polling rate, light
 rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
 rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
+rigdeck session start --name "CS2 high"        # game monitor: record while you play
+rigdeck session stop                           # save it; `session list` / `show ID` / `export ID file.csv`
 rigdeck motherboard                            # board, BIOS, temperatures, fan headers
 rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
 rigdeck monitor status                         # every monitor's controls
