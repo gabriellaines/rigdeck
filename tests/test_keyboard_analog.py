@@ -89,3 +89,16 @@ def test_custom_settings_round_trip(tmp_path, monkeypatch):
     assert default == 12 and keys == {0x45: 25} and len(rapid) == 87 and rapid[0x1D] == 1 and rapid[0x00] == 3
     keyboard.save_custom(2, None)
     assert keyboard.custom(2) is None
+
+
+def test_one_keyboard_user_at_a_time(tmp_path, monkeypatch):
+    import pytest
+    from rigdeck.modules.keyboard import hidpp
+    monkeypatch.setattr(hidpp, "LOCK", str(tmp_path / "kb.lock"))
+    monkeypatch.setattr(hidpp, "LOCK_WAIT", 0.1)
+    node = tmp_path / "hidraw"
+    node.write_bytes(b"")
+    with hidpp.Device(str(node)):
+        with pytest.raises(hidpp.HidppError, match="busy"):
+            hidpp.Device(str(node))
+    hidpp.Device(str(node)).close()                                  # free again once closed

@@ -7,6 +7,7 @@ Error replies use feature index 0xFF (HID++ 2.0 error) with the error code in by
 """
 from __future__ import annotations
 
+import fcntl
 import glob
 import os
 import select
@@ -27,6 +28,12 @@ ERRORS = {1: "unknown", 2: "invalid argument", 3: "out of range", 4: "hardware e
 
 class HidppError(RigdeckError):
     pass
+
+
+# One user of a keyboard at a time (GUI, CLI, service): multi-step operations (reading a sector,
+# writing a file) share the keyboard's single read/write cursor, so two at once corrupt each other.
+LOCK = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", f"rigdeck-keyboard-{os.getuid()}.lock")
+LOCK_WAIT = 5.0
 
 
 def interfaces(pids) -> list[tuple[str, int]]:
@@ -54,17 +61,31 @@ class Device:
         # Every open handle sees every reply: the background service uses its own sw id so the GUI
         # and the service never take each other's answers.
         self.node, self.timeout, self.sw_id = node, timeout, sw_id
+        self._lock = open(LOCK, "a")
+        end = time.monotonic() + LOCK_WAIT
+        while True:
+            try:
+                fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() > end:
+                    self._lock.close()
+                    raise HidppError("the keyboard is busy with another RigDeck task; try again") from None
+                time.sleep(0.02)
         try:
             self.fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
         except PermissionError as e:
+            self._lock.close()
             raise HidppError(f"no permission to open {node} — RigDeck's device rule isn't installed "
                              "(re-run the installer)") from e
         except OSError as e:
+            self._lock.close()
             raise HidppError(f"can't open {node}: {e.strerror}") from e
         self._index: dict[int, int | None] = {ROOT: 0}
 
     def close(self):
         os.close(self.fd)
+        self._lock.close()          # releases the lock
 
     def __enter__(self):
         return self
