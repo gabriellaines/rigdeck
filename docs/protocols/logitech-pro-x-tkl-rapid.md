@@ -48,3 +48,36 @@ to observe G HUB instead:
 3. Filter HID++ long reports (`0x11`) whose feature index matches `0x1b08`'s index (look it up with
    root fn 0 on the same session) and diff the payloads between captures.
 4. Write down request/response layouts here, then verify each read on Linux before any write.
+
+## Capture session guide (G HUB in a Windows VM, recorded on Linux)
+
+A USB device passed through to a VM still goes through Linux's USB stack, so `usbmon` on the host
+records G HUB's traffic; nothing needs installing in Windows besides G HUB.
+
+**While the keyboard is in the VM, Linux has no keyboard** — the capture below stops by itself, and
+everything else is done with the mouse.
+
+1. On Linux, start the recording (bus 3 is where the keyboard is plugged; check with
+   `lsusb | grep c35b`). It stops after 15 minutes:
+
+   ```
+   sudo modprobe usbmon
+   sudo timeout 900 tshark -i usbmon3 -w ~/gh-capture.pcapng
+   ```
+
+2. Start the `win11` VM, then pass the keyboard to it: virt-manager → the VM → *Add Hardware* →
+   *USB Host Device* → *Logitech PRO X RAPID*. (Remove it again at the end the same way.)
+3. In Windows, open G HUB and wait until it shows the keyboard. Then do these one at a time, and
+   **between steps press Caps Lock 3 times** (the keyboard's LED reports mark the boundaries in
+   the capture), waiting ~5 s before and after:
+   1. Change the actuation point of one key (e.g. W) to a clearly different value (e.g. 1.0 mm).
+   2. Change the actuation point of all keys.
+   3. Turn Rapid Trigger on for one key; then change its sensitivity.
+   4. Change lighting to a static red, and save it to the keyboard's onboard memory.
+   5. Switch to another onboard profile in G HUB, then back.
+   6. Undo everything (back to how it was) the same way, one step at a time.
+4. Remove the keyboard from the VM (or shut the VM down) and wait for the recording to stop.
+5. Hand over `~/gh-capture.pcapng`. Then, on Linux, filter the HID++ traffic of the keyboard's
+   device number (`lsusb`: "Device 003") with
+   `tshark -r gh-capture.pcapng -Y "usb.device_address == 3 && usb.capdata" -T fields -e frame.time_relative -e usb.endpoint_address -e usb.capdata`
+   and diff the `11 ff <feature index> …` reports between the steps.
