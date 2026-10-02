@@ -70,12 +70,26 @@ All are `[count hi, count lo]` + `count` × `[key id, value]`, values in **0.1 m
 
 | File | Meaning | Seen |
 |---:|---|---|
-| 0 | actuation point per key | 102 keys, default `0x14` = 2.0 mm; one key → 1.0 mm; "all keys" changed 87 keys (0x00–0x56), the other 15 (modifiers?) stayed 2.0 |
+| 0 | actuation point per key | 102 keys, default `0x14` = 2.0 mm; one key → 1.0 mm; "all keys" changed the 87 physical keys (0x00–0x56); the other 15 ids are other layouts' keys |
 | 1 | Rapid Trigger keys + sensitivity | empty = off; `00 01 1d 0a` = key 0x1d at 1.0 mm, then `1d 05` = 0.5 mm |
 | 2, 3 | unknown (always written empty `00 00`) | |
 
-Key ids are the keyboard's own (0x1d was the key changed in the "one key" step, most likely **W**;
-confirm with the live stream below). `0x1b05` files 1–3 were also written empty at G HUB start.
+Key ids (mapped 2026-10-02 with the live stream, ANSI; full map in `rigdeck/modules/keyboard/keymap.py`):
+
+| Ids | Keys |
+|---|---|
+| `00`–`0c` | Esc F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 |
+| `0d`–`1a` | \` 1 2 3 4 5 6 7 8 9 0 - = Backspace |
+| `1b`–`24` | Tab Q W E R F D S A CapsLock |
+| `25`–`36` | LShift Z X C T Y U I O L K J H G V B N M |
+| `37`–`41` | , P [ ] \ Enter ' ; . / RShift |
+| `42`–`49` | LCtrl LSuper LAlt Space RAlt Fn Menu RCtrl |
+| `4a`–`56` | PrtSc ScrollLock Pause PgUp Home Insert Delete End PgDn Up Right Down Left |
+
+The order snakes through the switch matrix (… R `1f`, F `20`, D `21`, S `22`, A `23` …), so it can't be
+derived from the layout. `0x47` is Fn (no HID usage). `0x57`–`0x6f` in the actuation file are
+keys of other layouts; G HUB's "all keys" changes only `0x00`–`0x56`. `0x1b05` files 1–3 were also
+written empty at G HUB start.
 
 **Applying** (G HUB order): file 0 then 1 then 3, each as fn 2 (length) → fn 3 chunks → fn 9 commit.
 Changes take effect at once.
@@ -87,7 +101,7 @@ Changes take effect at once.
 | 0 getInfo | — | `01 05 80 28`: 0x28 = 4.0 mm total travel (0.1 mm units) |
 | 1 | — | `00 …` |
 | 2 | `[0/1]` | toggled by G HUB around file writes (meaning unknown) |
-| 3 | `[0/1]` | live key-depth stream on/off: events `fn 0 [key id][depth 0.1 mm]`, e.g. key 0x42 0→0x28→0 |
+| 3 | `[0/1]` | live key-depth stream on/off: events `fn 0 [key id][depth 0.1 mm]`, e.g. key 0x42 0→0x28→0. **Lossy** when typing fast (events dropped, keys left "half pressed"): fine for a one-key-at-a-time UI, not for tracking real typing |
 
 ## Lighting (`0x8071` RGB_EFFECTS)
 
@@ -97,7 +111,6 @@ Each is followed by `0x1b05` fn 1 (reply `01`).
 
 ## Still to decode
 
-- Exact key-id → key map (live stream while pressing keys on Linux).
 - `0x8101` fn 6 and `0x1b08` fn 2 semantics, before RigDeck sends either.
 - Onboard profile switching (G HUB re-committed profile files 1→2→3→1 at 171–178 s).
 - How "save lighting to onboard memory" is stored (no lighting file write was seen).
