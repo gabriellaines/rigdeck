@@ -9,7 +9,9 @@ Item {
     property var values: ({})             // name -> {act, rapid, release, color}; act/rapid/release in 0.1 mm
     property var selected: []             // key names (owned by the page)
     signal picked(var names)              // the user changed the selection
-    property string view: "actuation"     // "actuation" | "rapid" | "lighting"
+    property string view: "keys"          // "keys" | "lighting"
+    property int wideAct: 20               // the profile-wide values (keys that differ are highlighted)
+    property int wideRapid: 0
     readonly property real unit: width / 18.25
     implicitHeight: unit * 7.35
 
@@ -18,12 +20,14 @@ Item {
         if (!add) { picked(isSelected(name) && selected.length === 1 ? [] : [name]); return }
         picked(isSelected(name) ? selected.filter(n => n !== name) : selected.concat([name]))
     }
+    // keys only show what differs from the profile-wide values
     function keyText(v) {
-        if (!v || v.act === undefined) return ""          // media keys: no analog switch
-        if (view === "actuation") return (v.act / 10).toFixed(1)
-        if (view === "rapid") return v.rapid ? (v.rapid / 10).toFixed(1) + (v.release && v.release !== v.rapid
-                                                ? "/" + (v.release / 10).toFixed(1) : "") : ""
-        return ""
+        if (view !== "keys" || !v || !v.own || v.act === undefined) return ""
+        return v.act !== wideAct || !v.rapid ? (v.act / 10).toFixed(1) : ""
+    }
+    function rapidText(v) {
+        if (view !== "keys" || !v || !v.own || v.act === undefined) return ""
+        return v.rapid !== wideRapid ? (v.rapid ? "↑" + (v.rapid / 10).toFixed(1) : "↑ off") : ""
     }
     function labelColor(v) {             // readable on the key's own colour in the lighting view
         if (view !== "lighting" || !v || !v.color) return theme.text
@@ -32,11 +36,9 @@ Item {
     }
     function fill(v) {
         if (view === "lighting") return v && v.color ? "#" + v.color : theme.raised
-        if (view === "rapid") return v && v.rapid ? Qt.alpha(theme.accent, 0.25 + 0.6 * (1 - v.rapid / 40)) : theme.raised
-        // actuation: lighter = shallower (fires earlier), the 2.0 mm default stays neutral
-        if (!v || v.act === 20) return theme.raised
-        return Qt.alpha(v.act < 20 ? "#f0a030" : "#3a8fe0", 0.25 + 0.5 * Math.abs(v.act - 20) / 20)
+        return v && v.own ? Qt.alpha(theme.accent, 0.28) : theme.raised      // keys with their own settings
     }
+
 
     // drag-to-select
     property point dragFrom
@@ -71,9 +73,9 @@ Item {
             required property var modelData
             readonly property var v: root.values[modelData.name]
             readonly property bool sel: root.isSelected(modelData.name)
-            opacity: root.view !== "lighting" && !modelData.analog ? 0.4 : 1   // media keys: lights only
-            x: modelData.x * root.unit + 2; y: modelData.y * root.unit + 2
-            width: modelData.w * root.unit - 4; height: root.unit - 4
+            opacity: root.view !== "lighting" && !modelData.analog ? 0.35 : 1  // media keys: lights only
+            x: modelData.x * root.unit + 2; y: modelData.y * root.unit + (modelData.analog ? 2 : root.unit * 0.3)
+            width: modelData.w * root.unit - 4; height: modelData.analog ? root.unit - 4 : root.unit * 0.55
             radius: modelData.analog ? 5 : height / 2
             color: root.fill(v)
             border.width: sel ? 2.5 : 1
@@ -90,6 +92,13 @@ Item {
                 font.pixelSize: Math.max(9, root.unit * 0.2)
                 font.bold: true
                 color: root.labelColor(parent.v)
+            }
+            Label {
+                anchors { right: parent.right; top: parent.top; rightMargin: 5; topMargin: 3 }
+                text: root.rapidText(parent.v)
+                font.pixelSize: Math.max(9, root.unit * 0.18)
+                color: theme.accent
+                font.bold: true
             }
         }
     }

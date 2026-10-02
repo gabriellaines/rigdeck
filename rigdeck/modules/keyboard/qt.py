@@ -93,7 +93,8 @@ class KeyboardBackend(QObject):
         c = custom(n)
         if c:
             default, keys, rapid = effective(c)
-            return {kid: {"act": keys.get(kid, default), "rapid": rapid.get(kid, 0)} for kid in KEYS}
+            return {kid: {"act": keys.get(kid, default), "rapid": rapid.get(kid, 0),
+                          "own": kid in c["keys"] or kid in c["rapidKeys"]} for kid in KEYS}
         p = next((p for p in self._analog if p["index"] == n), None)
         return {KEY_IDS[name]: v for name, v in p["perKey"].items()} if p else {}
 
@@ -135,6 +136,38 @@ class KeyboardBackend(QObject):
 
     def _change_lights(self, n, s):
         self._run_change(n, lambda: save_lighting(n, s), analog_part=False, lights_part=True, saved=s is not None)
+
+    @Slot(int, result="QVariantMap")
+    def profileWide(self, n):
+        """{act, rapid, own: number of keys with their own settings} for profile n (0.1 mm)."""
+        c = custom(n) or from_keyboard(self._per_key(n)) if self._per_key(n) else None
+        if not c:
+            return {}
+        own = set(c["keys"]) | set(c["rapidKeys"])
+        return {"act": c["actuation"], "rapid": c["rapid"], "own": len(own), "custom": custom(n) is not None}
+
+    @Slot(int, "QVariantMap")
+    def setProfileWide(self, n, patch):
+        """Every key of profile n (keys with their own settings keep them): patch {act?, rapid?}."""
+        s = custom(n) or from_keyboard(self._per_key(n))
+        s = {**s, "keys": dict(s["keys"]), "rapidKeys": dict(s["rapidKeys"])}
+        if "act" in patch:
+            s["actuation"] = int(patch["act"])
+            s["keys"] = {k: v for k, v in s["keys"].items() if v != s["actuation"]}
+        if "rapid" in patch:
+            s["rapid"] = int(patch["rapid"])
+            s["rapidKeys"] = {k: v for k, v in s["rapidKeys"].items() if v != s["rapid"]}
+        self._change(n, s)
+
+    @Slot(int, "QVariantList")
+    def clearOwn(self, n, names):
+        """Selected keys (all if empty) follow the profile-wide settings again."""
+        s = custom(n)
+        if not s:
+            return
+        ids = {KEY_IDS[x] for x in names if x in KEY_IDS} or set(KEYS)
+        self._change(n, {**s, "keys": {k: v for k, v in s["keys"].items() if k not in ids},
+                         "rapidKeys": {k: v for k, v in s["rapidKeys"].items() if k not in ids}})
 
     @Slot(int, "QVariantList", "QVariantMap")
     def setKeys(self, n, names, patch):
