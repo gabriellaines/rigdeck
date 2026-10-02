@@ -38,7 +38,8 @@ def run_async(fn, done=None, error=None):
             result = fn()
         except Exception as e:  # noqa: BLE001 — reported to the UI
             if error:
-                on_main(lambda: error(e))
+                # bind now: Python deletes `e` when this block ends, before the main thread runs it
+                on_main(lambda exc=e: error(exc))
             else:
                 traceback.print_exc()
             return

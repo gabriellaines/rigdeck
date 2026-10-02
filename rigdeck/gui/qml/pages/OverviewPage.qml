@@ -12,6 +12,9 @@ PageScroll {
     readonly property var gpu: live.gpu || {}
     readonly property var cool: typeof cooler !== "undefined" ? cooler : null
     readonly property bool coolerUp: cool !== null && cool.connected
+    // one row per peripheral; backends with several (Wi-Fi, Bluetooth devices…) expose `summaries`
+    readonly property var deviceRows: appState.peripherals.reduce(
+        (rows, b) => rows.concat(b.summaries !== undefined ? b.summaries : [b.summary]), [])
 
     function fmt(v, digits) {
         return (v === null || v === undefined) ? "—" : Number(v).toLocaleString(Qt.locale(), "f", digits || 0)
@@ -72,7 +75,7 @@ PageScroll {
 
         Panel {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignTop   // the device list beside it can grow taller
             Layout.horizontalStretchFactor: 65
             title: "Cooling"
             subtitle: page.cool ? page.cool.identity.model : "No supported cooler"
@@ -122,7 +125,7 @@ PageScroll {
             Layout.horizontalStretchFactor: 35
             title: "Devices"
             subtitle: (page.coolerUp ? 1 : 0) + (page.gpuInfo ? 1 : 0)
-                      + appState.peripherals.filter(b => b.summary.connected).length + " connected"
+                      + page.deviceRows.filter(r => r.connected).length + " connected"
             padding: 0
             DeviceRow {
                 visible: page.cool !== null
@@ -143,9 +146,9 @@ PageScroll {
                 status: "Monitoring"
             }
             Repeater {
-                model: appState.peripherals
+                model: page.deviceRows
                 DeviceRow {
-                    readonly property var s: modelData.summary
+                    readonly property var s: modelData
                     icon: s.icon
                     title: s.title
                     detail: s.detail

@@ -13,9 +13,13 @@ the only way to control some hardware.
 | GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
 | Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
+| Motherboard: model, BIOS, board temperatures, fan headers (Nuvoton `nct6775` / ITE `it87` sensors) | ✅ monitoring · 🛠️ fan control planned |
+| ASUS Aura USB motherboard lighting (`0b05:18f3/1939/19af/1aa6/1bed`): board LEDs, RGB and ARGB headers — off, static, breathing, flashing, color cycle, rainbow | ✅ |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
+| Monitors over DDC/CI (via [ddcutil](https://www.ddcutil.com)): brightness (one or all), contrast, color preset, input, volume | ✅ (needs ddcutil) |
+| Wi-Fi, Ethernet and Bluetooth status (NetworkManager / BlueZ), Bluetooth device batteries | ✅ |
 | Webcams (any UVC camera, e.g. Logitech C920): brightness, white balance, exposure, focus, zoom, live preview | ✅ |
 
 ## Install
@@ -94,6 +98,11 @@ rigdeck headset auto-off 30                    # minutes idle before it turns of
 rigdeck mouse status                           # battery, DPI stages, polling rate, light
 rigdeck mouse set --dpi 800 1600 --rate 2000   # saved on the mouse itself
 rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
+rigdeck motherboard                            # board, BIOS, temperatures, fan headers
+rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
+rigdeck monitor status                         # every monitor's controls
+rigdeck network                                # Wi-Fi, Ethernet and Bluetooth status
+rigdeck monitor set brightness=40              # all monitors (or --monitor N)
 rigdeck webcam status                          # all controls and their values
 rigdeck webcam set brightness=140 focus_automatic_continuous=off
 rigdeck update                                 # update to the latest GitHub release
@@ -116,7 +125,7 @@ Fan and pump modes are saved on the cooler itself. Lighting settings live in
 
 `rigdeck-gui` (or **RigDeck** in your app menu). The **Overview** shows live CPU/GPU
 temperatures, fan and pump speed, the fan curve and your devices; the sidebar has a page per
-device plus **Graphics, Processor, Memory, Storage** and **Settings**. The **Water Cooler** page
+device plus **Graphics, Processor, Memory, Storage** and **Settings**. The **Cooler** page
 has **Cooling** (modes + drag-to-edit curve), **Lighting** (effects, color, brightness, speed) and
 **Screen** (preview, one animation or a carousel with ordering, upload, delete, rotation).
 Open a page directly with `rigdeck-gui --page cooler`.
@@ -158,4 +167,7 @@ The full process is in [CONTRIBUTING.md](CONTRIBUTING.md). In short:
 
 ## License
 
-GPL-3.0-or-later. Icons from [Lucide](https://lucide.dev) (ISC). Not affiliated with GIGABYTE.
+GPL-3.0-or-later. Icons from [Lucide](https://lucide.dev) (ISC). Not affiliated with any hardware maker;
+product names belong to their owners. Protocol credits: the Linux `hid-pulsar` driver and
+[attack-shark-x11-ultra-linux](https://github.com/MontyMcK/attack-shark-x11-ultra-linux) (mice),
+[OpenRGB](https://openrgb.org) (ASUS Aura), [Solaar](https://github.com/pwr-Solaar/Solaar) (Logitech HID++).

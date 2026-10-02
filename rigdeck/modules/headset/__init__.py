@@ -31,6 +31,8 @@ def change(settings: dict) -> dict:
         raise RigdeckError("no supported headset found")
     if not st["on"]:
         raise RigdeckError("the headset is off — turn it on and try again")
+    if settings.get("inactive_time", 0) > st["inactive_max"]:
+        raise RigdeckError(f"{st['name']} turns off after at most {st['inactive_max']} minutes")
     unsupported = [k for k in settings if k not in st["caps"]]
     if unsupported:
         raise RigdeckError(f"{st['name']} doesn't support: {', '.join(unsupported)}")
@@ -61,13 +63,19 @@ class HeadsetTask(ServiceTask):
             return POLL
         on = bool(st and st["on"])
         if on and not self.was_on and self.settings:
-            todo = {k: v for k, v in self.settings.items() if k in st["caps"]}
-            try:
-                hc.apply(st["id"], todo)
-                log.info("%s on: applied %s", st["name"], todo)
-            except hc.HeadsetError as e:
-                log.warning("%s: could not apply settings: %s", st["name"], e)
-                on = False  # retry next time
+            # Once per power-on, one setting at a time; a failure is logged, not retried in a loop
+            # (every write can make the headset beep).
+            applied = {}
+            for k, v in self.settings.items():
+                if k not in st["caps"]:
+                    continue
+                try:
+                    hc.apply(st["id"], {k: v})
+                    applied[k] = v
+                except hc.HeadsetError as e:
+                    log.warning("%s: could not apply %s: %s", st["name"], k, e)
+            if applied:
+                log.info("%s on: applied %s", st["name"], applied)
         self.was_on = on
         return POLL
 

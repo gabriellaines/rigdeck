@@ -84,6 +84,18 @@ def read_state(dev: dict) -> dict:
     }
 
 
+def read_battery(dev: dict) -> dict:
+    """Light read for background polling: identity and battery only (handshake + one request).
+    No battery answer means the mouse is asleep (both supported mice report it when awake)."""
+    model = MODELS[dev["model"]]
+    with compx.Mouse(dev["node"]) as m:
+        battery = m.battery()
+        info = m.info
+    return {"node": dev["node"], "model": dev["model"], "name": _model_name(dev["model"], info),
+            "connection": model["pids"][dev["pid"]], "pid": f"{dev['pid']:04x}",
+            "maxRate": MAX_RATE.get(info.get("type"), 1000), "battery": battery, "asleep": battery is None}
+
+
 def _level(stored: int | None) -> int:
     """LED brightness as stored -> slider level 1..10 (nearest)."""
     if stored is None:

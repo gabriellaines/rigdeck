@@ -8,6 +8,7 @@ RIGDECK_HEADSET_TEST=1 switches to HeadsetControl's mock headset, for developmen
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -30,6 +31,8 @@ CAPS = {"CAP_SIDETONE": "sidetone", "CAP_INACTIVE_TIME": "inactive_time", "CAP_L
 
 # Headsets whose sidetone is only on/off, whatever level is sent.
 SIDETONE_ON_OFF = {"0951:1718"}  # HyperX Cloud II Wireless (Kingston)
+# Longest auto power-off the headset accepts (HeadsetControl caps larger values), default 90.
+INACTIVE_MAX = {"0951:1718": 30}
 
 
 class HeadsetError(RigdeckError):
@@ -44,15 +47,24 @@ def installed() -> bool:
     return shutil.which(EXE) is not None
 
 
+LOCK = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", f"rigdeck-headset-{os.getuid()}.lock")
+
+
 def _run(*args: str, timeout: float = 15) -> str:
+    """Run HeadsetControl. Calls are serialised across processes (app and service): two at once
+    garble each other's replies ("Protocol error", timeouts)."""
     if not installed():
         raise NotInstalled("HeadsetControl is not installed")
     if TEST_MODE:
         args = (*args, "--test-device")  # last: it takes an optional argument
-    try:
-        r = subprocess.run([EXE, *args], capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired as e:
-        raise HeadsetError("HeadsetControl did not answer") from e
+    with open(LOCK, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            r = subprocess.run([EXE, *args], capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as e:
+            raise HeadsetError("HeadsetControl did not answer") from e
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
     if r.returncode != 0:
         msg = (r.stderr or r.stdout).strip().splitlines()
         raise HeadsetError(msg[-1] if msg else f"HeadsetControl failed ({r.returncode})")
@@ -94,6 +106,7 @@ def _device(raw: dict) -> dict:
         "charging": state == "BATTERY_CHARGING",
         "chatmix": raw.get("chatmix"),
         "sidetone_on_off": did in SIDETONE_ON_OFF,
+        "inactive_max": INACTIVE_MAX.get(did, 90),
     }
 
 

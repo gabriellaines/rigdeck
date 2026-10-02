@@ -1,6 +1,6 @@
 # Maintainer: Gabe Laines <gabrielantoniolaines@gmail.com>
 pkgname=rigdeck
-pkgver=0.4.0
+pkgver=0.5.0
 pkgrel=1
 pkgdesc="Control panel for PC hardware on Linux (AORUS WATERFORCE X II AIO cooler, more to come)"
 arch=('any')
@@ -12,7 +12,8 @@ optdepends=('pyside6: graphical app (rigdeck-gui)'
             'qt6-svg: graphical app (rigdeck-gui)'
             'ffmpeg: uploading GIFs/videos to the cooler screen'
             'lact: GPU fan, zero-RPM and power limit controls'
-            'headsetcontrol: headset battery and settings')
+            'headsetcontrol: headset battery and settings'
+            'ddcutil: monitor brightness, contrast and input')
 install=rigdeck.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')

@@ -20,3 +20,4 @@ IconButton 1.0 IconButton.qml
 PageScroll 1.0 PageScroll.qml
 Toggle 1.0 Toggle.qml
 SettingRow 1.0 SettingRow.qml
+ColorSwatches 1.0 ColorSwatches.qml
