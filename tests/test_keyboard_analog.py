@@ -40,3 +40,52 @@ def test_pairs_and_summary():
 
 def test_keymap_covers_a_tkl():
     assert len(KEYS) == 87 and KEYS[0x1D] == "W" and KEYS[0x47] == "Fn"
+
+
+class FakeKeyboard:
+    """Records feature calls; answers fn 6 `0f` with the active profile."""
+
+    def __init__(self, profile=1):
+        self.calls, self.profile = [], profile
+
+    def feature(self, feature, function, params=b""):
+        self.calls.append((feature, function, bytes(params)))
+        if (feature, function) == (0x8101, 6):
+            return bytes([3, 0, self.profile]) + bytes(13)
+        return bytes(16)
+
+
+def test_apply_sends_g_hub_sequence():
+    k = FakeKeyboard()
+    analog.apply(k, 20, {0x1D: 10}, {})
+    assert k.calls[0] == (0x1B08, 2, b"\x00")                       # Rapid Trigger switch off
+    commits = [c for c in k.calls if c[1] == 9]
+    assert [c[2][2] for c in commits] == [0, 1, 3]                  # files in G HUB's order
+    assert commits[0][2] == bytes.fromhex("1b08000200 00ce f41d75cf".replace(" ", ""))  # = G HUB's bytes
+    chunks = b"".join(c[2] for c in k.calls if c[1] == 3)
+    assert chunks.startswith(bytes.fromhex("0066 0014 0114"))
+
+
+def test_apply_rapid_trigger_turns_switch_on_and_validates():
+    k = FakeKeyboard()
+    analog.apply(k, 20, {}, {0x1E: 5})
+    assert k.calls[0] == (0x1B08, 2, b"\x01")
+    import pytest
+    with pytest.raises(ValueError):
+        analog.apply(FakeKeyboard(), 20, {0x1D: 0}, {})              # 0 mm is not a valid actuation
+    with pytest.raises(ValueError):
+        analog.apply(FakeKeyboard(), 41, {}, {})
+
+
+def test_custom_settings_round_trip(tmp_path, monkeypatch):
+    from rigdeck import config
+    from rigdeck.modules import keyboard
+    monkeypatch.setattr(config, "PATH", str(tmp_path / "config.toml"))
+    assert keyboard.custom(1) is None
+    s = {"actuation": 12, "rapid": 3, "keys": {0x45: 25}, "rapidKeys": {0x1D: 1}}
+    keyboard.save_custom(2, s)
+    assert keyboard.custom(2) == s and keyboard.custom(1) is None
+    default, keys, rapid = keyboard.effective(s)
+    assert default == 12 and keys == {0x45: 25} and len(rapid) == 87 and rapid[0x1D] == 1 and rapid[0x00] == 3
+    keyboard.save_custom(2, None)
+    assert keyboard.custom(2) is None

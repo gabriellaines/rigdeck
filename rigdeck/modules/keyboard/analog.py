@@ -1,8 +1,10 @@
-"""Analog settings (actuation point, Rapid Trigger) of the PRO X TKL RAPID — read-only.
+"""Analog settings (actuation point, Rapid Trigger) of the PRO X TKL RAPID.
 
 The keyboard keeps them as small files in its flash, reached through 0x8101 (profile management);
-see docs/protocols/logitech-pro-x-tkl-rapid.md. Only the calls G HUB itself makes to read are used
-here: fn 8 opens a sector for reading, fn 12 returns its next 16 bytes. Nothing is written.
+see docs/protocols/logitech-pro-x-tkl-rapid.md. Reading uses the calls G HUB uses (fn 8 opens a
+sector, fn 12 returns its next 16 bytes). Writing sends files the way G HUB does (fn 2 length,
+fn 3 chunks, fn 9 commit with CRC-32): that changes the *live* settings only — the stored profiles
+are untouched, and fn 9 "activate" points a file back at the profile's stored copy.
 
 Each onboard profile (Fn+F2/F3/F4) ends with an analog table: the default actuation point, whether
 Rapid Trigger is on, and pointers (bank, directory entry) to its 0x1b08 files:
@@ -21,6 +23,10 @@ PROFILE_LEN = 0x6D
 ANALOG_TABLE = 91                     # offset of the analog table inside a profile
 PROFILE_KEYS = ["Fn + F2", "Fn + F3", "Fn + F4"]
 TRAVEL_MM = 4.0
+# Every key id G HUB's actuation file lists (the 87 keys of this TKL + other layouts' keys).
+FILE_IDS = list(range(0x00, 0x5D)) + list(range(0x64, 0x6B)) + [0x6E, 0x6F]
+ACTUATION_RANGE = (1, 40)          # 0.1–4.0 mm
+RAPID_RANGE = (1, 40)
 
 
 class FormatError(hidpp.HidppError):
@@ -100,6 +106,63 @@ class Reader:
             out.append({"index": n + 1, "keys": PROFILE_KEYS[n], "name": p["name"],
                         "default": p["default"], "actuation": actuation, "rapidTrigger": rapid})
         return out
+
+
+# ---- writing (live settings) -------------------------------------------------------------
+
+def pairs_file(values: dict[int, int]) -> bytes:
+    return len(values).to_bytes(2, "big") + b"".join(bytes([k, v]) for k, v in values.items())
+
+
+def write_file(k: hidpp.Device, file: int, data: bytes):
+    k.feature(PROFILE_MGMT, 2, len(data).to_bytes(2, "big") + b"\0")
+    for off in range(0, len(data), 16):
+        chunk = data[off:off + 16]
+        k.feature(PROFILE_MGMT, 3, chunk + bytes(16 - len(chunk)))
+    k.feature(PROFILE_MGMT, 9, ANALOG.to_bytes(2, "big") + bytes([file, 2]) + len(data).to_bytes(3, "big")
+              + zlib.crc32(data).to_bytes(4, "big"))
+
+
+def _check(values: dict[int, int], lo_hi: tuple[int, int], what: str):
+    lo, hi = lo_hi
+    for kid, v in values.items():
+        if kid not in KEYS:
+            raise ValueError(f"unknown key id 0x{kid:02x}")
+        if not lo <= v <= hi:
+            raise ValueError(f"{what} for {KEYS[kid]} must be {mm(lo)}–{mm(hi)}")
+
+
+def apply(k: hidpp.Device, default: int, actuation: dict[int, int], rapid: dict[int, int]):
+    """Live settings: every key at `default` (0.1 mm) except `actuation` overrides; Rapid Trigger with
+    per-key sensitivity on the keys in `rapid` (empty = off). Same order as G HUB: files 0, 1, 3."""
+    _check({0: default}, ACTUATION_RANGE, "actuation")
+    _check(actuation, ACTUATION_RANGE, "actuation")
+    _check(rapid, RAPID_RANGE, "Rapid Trigger sensitivity")
+    k.feature(ANALOG, 2, bytes([1 if rapid else 0]))       # Rapid Trigger master switch (G HUB sends it first)
+    write_file(k, 0, pairs_file({kid: actuation.get(kid, default) for kid in FILE_IDS}))
+    write_file(k, 1, pairs_file(dict(sorted(rapid.items()))))
+    write_file(k, 3, pairs_file({}))
+
+
+def restore(k: hidpp.Device, profile_index: int):
+    """Drop live settings: point files 0 and 1 back at what the profile stores (empty if none)."""
+    r = Reader(k)
+    entries = sorted(i for i, e in r.directory(0).items() if e["feature"] == PROFILE_MGMT)
+    p = parse_profile(r.file(0, entries[profile_index - 1], PROFILE_MGMT))
+    k.feature(ANALOG, 2, bytes([1 if p["rapidTrigger"] else 0]))
+    for file in (0, 1):
+        ref = p["refs"][file]
+        if ref is None or ref[0] != 0:
+            write_file(k, file, pairs_file({kid: p["default"] for kid in FILE_IDS}) if file == 0 else pairs_file({}))
+            continue
+        e = r.directory(0)[ref[1]]
+        k.feature(PROFILE_MGMT, 9, ANALOG.to_bytes(2, "big") + bytes([file, 0, ref[1]])
+                  + e["length"].to_bytes(2, "big") + e["crc"].to_bytes(4, "big"))
+
+
+def active_profile(k: hidpp.Device) -> int:
+    """1–3: the onboard profile in use (0x8101 fn 6 `0f` → `03 00 <profile>`; switching wipes live settings)."""
+    return k.feature(PROFILE_MGMT, 6, b"\x0f")[2]
 
 
 def read_profiles(node: str) -> list[dict]:

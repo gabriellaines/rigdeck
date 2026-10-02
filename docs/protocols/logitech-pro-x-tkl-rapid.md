@@ -99,8 +99,13 @@ no G HUB "software mode" needed): writing file 0 with only W (0x1d) at 1.0 mm wa
 `f41d75cf`, identical to G HUB's) and W then fired at 1.0 mm while E fired at 2.0 mm (measured with
 the live depth stream at the moment of the HID key-down). **These writes are live, not stored**: the
 directory and the profiles were unchanged afterwards. fn 9 *activate* `1b 08 00 00 07 00 ce <crc of
-entry 7>` put it back to the stored file (W 2.0 mm again). Still unknown: whether live settings
-survive a profile switch, unplugging, or sleep.
+entry 7>` put it back to the stored file (W 2.0 mm again).
+
+**Profile switches wipe live settings** (Fn+F3 → Fn+F2: W back to 2.0 mm). `0x8101` fn 6 `0f` →
+`03 00 <active profile 1–3>` reports the switch, so RigDeck's service polls it and re-applies
+(verified: W at 1.0 mm again within ~1 s). **Rapid Trigger also needs `0x1b08` fn 2 `[1]`** (master
+switch; `[0]` off) — with only file 1 written, keys still released at ~1.5 mm; with fn 2 `[1]`, E at
+0.5 mm released 0.5 mm off the bottom (3.3–3.5 mm after 4.0). G HUB sends fn 2 before the files.
 
 ### `0x1b08` functions
 
@@ -108,7 +113,7 @@ survive a profile switch, unplugging, or sleep.
 |---:|---|---|
 | 0 getInfo | — | `01 05 80 28`: 0x28 = 4.0 mm total travel (0.1 mm units) |
 | 1 | — | `00 …` |
-| 2 | `[0/1]` | toggled by G HUB around file writes (meaning unknown) |
+| 2 | `[0/1]` | Rapid Trigger master switch (verified) |
 | 3 | `[0/1]` | live key-depth stream on/off: events `fn 0 [key id][depth 0.1 mm]`, e.g. key 0x42 0→0x28→0. **Lossy** when typing fast (events dropped, keys left "half pressed"): fine for a one-key-at-a-time UI, not for tracking real typing |
 
 ## Lighting (`0x8071` RGB_EFFECTS)
@@ -119,7 +124,7 @@ Each is followed by `0x1b05` fn 1 (reply `01`).
 
 ## Still to decode
 
-- `0x8101` fn 6 and `0x1b08` fn 2 semantics, before RigDeck sends either.
+- `0x8101` fn 6 values other than `0f` (G HUB's `05` = software mode?).
 - Onboard profile switching (G HUB re-committed profile files 1→2→3→1 at 171–178 s).
 - How "save lighting to onboard memory" is stored (no lighting file write was seen).
 

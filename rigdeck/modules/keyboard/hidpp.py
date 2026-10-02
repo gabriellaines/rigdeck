@@ -50,8 +50,10 @@ def interfaces(pids) -> list[tuple[str, int]]:
 
 
 class Device:
-    def __init__(self, node: str, timeout: float = 1.0):
-        self.node, self.timeout = node, timeout
+    def __init__(self, node: str, timeout: float = 1.0, sw_id: int = SW_ID):
+        # Every open handle sees every reply: the background service uses its own sw id so the GUI
+        # and the service never take each other's answers.
+        self.node, self.timeout, self.sw_id = node, timeout, sw_id
         try:
             self.fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
         except PermissionError as e:
@@ -72,7 +74,7 @@ class Device:
 
     def call(self, index: int, function: int, params: bytes = b"") -> bytes:
         """Send a long request; return the reply's 16 parameter bytes."""
-        msg = bytes([LONG, DEVICE, index, (function << 4) | SW_ID]) + params
+        msg = bytes([LONG, DEVICE, index, (function << 4) | self.sw_id]) + params
         os.write(self.fd, msg + bytes(20 - len(msg)))
         end = time.monotonic() + self.timeout
         while time.monotonic() < end:

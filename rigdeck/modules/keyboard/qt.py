@@ -5,7 +5,12 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
-from . import BRIGHTNESS_PRESETS, analog_state, connected, read_state, set_brightness
+from ... import servicectl
+from . import (BRIGHTNESS_PRESETS, analog, analog_state, apply_custom, connected, custom, read_state,
+               save_custom, set_brightness)
+from .keymap import KEYS
+
+KEY_IDS = {v: k for k, v in KEYS.items()}
 
 POLL_MS = 10000   # picks up brightness changed with the Fn key
 
@@ -78,6 +83,57 @@ class KeyboardBackend(QObject):
         run_async(lambda: analog_state(dev), got, failed)
 
     analog = Property("QVariantList", lambda self: self._analog, notify=analogChanged)
+    keyNames = Property("QVariantList", lambda self: list(KEYS.values()), constant=True)
+
+    @Property("QVariantList", notify=analogChanged)
+    def custom(self):
+        """RigDeck's settings per profile (None = the keyboard's own), keys by name, values in 0.1 mm."""
+        out = []
+        for n in (1, 2, 3):
+            c = custom(n)
+            out.append(None if c is None else {
+                "actuation": c["actuation"], "rapid": c["rapid"],
+                "keys": [{"name": KEYS[k], "value": v} for k, v in sorted(c["keys"].items())],
+                "rapidKeys": [{"name": KEYS[k], "value": v} for k, v in sorted(c["rapidKeys"].items())]})
+        return out
+
+    @Slot(int, "QVariantMap")
+    def setCustom(self, n, s):
+        """s: {actuation, rapid, keys: {name: value}, rapidKeys: {name: value}}; values in 0.1 mm."""
+        settings = {"actuation": int(s["actuation"]), "rapid": int(s.get("rapid", 0)),
+                    "keys": {KEY_IDS[k]: int(v) for k, v in (s.get("keys") or {}).items()},
+                    "rapidKeys": {KEY_IDS[k]: int(v) for k, v in (s.get("rapidKeys") or {}).items()}}
+        self._change(n, settings)
+
+    @Slot(int)
+    def resetCustom(self, n):
+        self._change(n, None)
+
+    def _change(self, n, settings):
+        if self._busy or not self._dev:
+            return
+        self._busy = True
+        self.stateChanged.emit()
+        dev = self._dev
+
+        def work():
+            save_custom(n, settings)
+            servicectl.reload()                     # the service keeps them on after profile switches
+            return apply_custom(dev, n)
+
+        def done(active):
+            self._busy = False
+            self.stateChanged.emit()
+            self.analogChanged.emit()
+            if not active and settings is not None:
+                self.toast.emit(f"Saved. They take effect when profile {n} is active ({analog.PROFILE_KEYS[n - 1]}).")
+
+        def failed(e):
+            self._busy = False
+            self.toast.emit(f"Could not change the keyboard: {e}")
+            self.stateChanged.emit()
+            self.analogChanged.emit()
+        run_async(work, done, failed)
     analogStatus = Property(str, lambda self: self._analog_status, notify=analogChanged)
 
     state = Property("QVariantMap", lambda self: self._state, notify=stateChanged)
