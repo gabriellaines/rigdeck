@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal
+from PySide6.QtCore import Property, QObject, Signal
 
 from .. import disk_health, resources, spd
+from .activity import AdaptiveTimer
 from .bridge import run_async
 
 HISTORY = 60      # samples kept (one per second)
@@ -30,13 +31,13 @@ class ResourceMonitor(QObject):
         self._gpu_names = gpu_names or {}
         self._h: dict = {"cpu": [], "cores": [], "memory": [], "disks": {}, "nets": {}, "gpus": {}}
         self._now: dict = {}
-        QTimer(self, interval=INTERVAL_MS, timeout=self._tick).start()
+        AdaptiveTimer(self, self._tick, visible_ms=INTERVAL_MS)
         try:
             self._modules = spd.modules()
         except OSError:
             self._modules = []
         self._health: dict = {}
-        QTimer(self, interval=HEALTH_MS, timeout=self._read_health).start()
+        AdaptiveTimer(self, self._read_health, visible_ms=HEALTH_MS)
         self._read_health()
 
     healthChanged = Signal()

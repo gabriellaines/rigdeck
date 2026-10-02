@@ -1,8 +1,9 @@
 """`motherboard` in QML: board identity, temperatures, fan headers (polled from sysfs) and lighting."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import driver_available, lighting, read, set_lighting
 
@@ -21,8 +22,7 @@ class MotherboardBackend(QObject):
         self._light: dict = {}
         self._light_error = ""
         self._busy = False
-        self._timer = QTimer(self, interval=POLL_MS, timeout=self._poll)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self._poll, page="motherboard", page_ms=POLL_MS)
         self.refreshLighting()
 
     def _poll(self):

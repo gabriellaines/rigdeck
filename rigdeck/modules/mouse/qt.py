@@ -8,8 +8,9 @@ Each mouse keeps its last known state, so switching between mice doesn't blank t
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer, activity
 from ...gui.bridge import run_async
 from . import MAX_STAGES, MODELS, backup, change, compx, connected, read_battery, read_state
 
@@ -27,13 +28,13 @@ class MouseBackend(QObject):
         self._states: dict[str, dict] = {}   # node -> last known state (full or battery-only)
         self._errors: dict[str, str] = {}
         self._index = 0
-        self._active = False               # Mouse page visible
         self._io = False                   # one request to the mice at a time
         self._busy = False                 # a write is in progress
         self._loaded = False
         self._full_pending = False         # a full read was asked for while another request ran
-        for interval, fn in ((HOTPLUG_MS, self._hotplug), (PAGE_MS, self._page_tick), (BATTERY_MS, self._battery_tick)):
-            QTimer(self, interval=interval, timeout=fn).start()
+        AdaptiveTimer(self, self._hotplug, visible_ms=HOTPLUG_MS)
+        AdaptiveTimer(self, self._read_full, page="mouse", page_ms=PAGE_MS)
+        AdaptiveTimer(self, self._battery_tick, visible_ms=BATTERY_MS)
         self._hotplug()
 
     # ---- polling -------------------------------------------------------------------------
@@ -54,7 +55,7 @@ class MouseBackend(QObject):
         self.miceChanged.emit()
         self.stateChanged.emit()
         self._battery_tick()
-        if self._active:
+        if activity().page == "mouse":
             self._read_full()
 
     def _job(self, fn, done):
@@ -123,17 +124,6 @@ class MouseBackend(QObject):
                 self._states[node] = {**self._states.get(node, {}), **st}
             self.stateChanged.emit()
         self._job(fn, got)
-
-    def _page_tick(self):
-        if self._active:
-            self._read_full()
-
-    @Slot(bool)
-    def setActive(self, on):
-        """The Mouse page tells us when it's visible; full reads only happen then."""
-        self._active = bool(on)
-        if on:
-            self._read_full()
 
     @Slot()
     def refresh(self):

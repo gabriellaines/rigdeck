@@ -1,9 +1,10 @@
 """`network` in QML: adapters with addresses and live throughput, nearby Wi-Fi networks."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QProcess, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QProcess, Signal, Slot
 
 from ... import bluez
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import counters, read
 
@@ -26,8 +27,8 @@ class NetworkBackend(QObject):
         self._last: dict[str, tuple] = {}
         self._loaded = False
         self._reading = False
-        QTimer(self, interval=POLL_MS, timeout=self.refresh).start()
-        QTimer(self, interval=RATE_MS, timeout=self._rate_tick).start()
+        AdaptiveTimer(self, self.refresh, page="network", page_ms=POLL_MS, visible_ms=30000)   # Overview: Wi-Fi row
+        AdaptiveTimer(self, self._rate_tick, page="network", page_ms=RATE_MS)
         self.refresh()
 
     @Slot()

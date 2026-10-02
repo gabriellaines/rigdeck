@@ -1,8 +1,9 @@
 """`keyboard` in QML: identity and lighting brightness."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import BRIGHTNESS_PRESETS, connected, read_state, set_brightness
 
@@ -21,8 +22,7 @@ class KeyboardBackend(QObject):
         self._error = ""
         self._busy = False
         self._reading = False
-        self._timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self.refresh, page="keyboard", page_ms=POLL_MS, visible_ms=60000)
         self.refresh()
 
     @Slot()

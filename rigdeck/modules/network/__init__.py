@@ -4,6 +4,7 @@ Read-only: connecting stays in the desktop's own settings, which the page opens.
 """
 from __future__ import annotations
 
+import functools
 import os
 import shutil
 import subprocess
@@ -38,6 +39,7 @@ def _read(path: str) -> str:
         return ""
 
 
+@functools.lru_cache(maxsize=None)        # the adapter's model never changes
 def hardware_name(sysfs: str) -> str:
     """'TP-Link AC600 wireless Realtek RTL8811AU [Archer T2U Nano]' from udev's hardware database,
     else the USB product string."""

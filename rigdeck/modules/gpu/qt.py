@@ -6,6 +6,7 @@ import subprocess
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import DEFAULT_CURVE, enable_overdrive, fan_controls_available, overdrive_plan, read_state
 from .lact import Lact, LactUnavailable, installed
@@ -34,8 +35,7 @@ class GpuBackend(QObject):
         self._cap = None
         self._confirm_left = 0
         self._confirm_timer = QTimer(self, interval=1000, timeout=self._tick_confirm)
-        self._poll_timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
-        self._poll_timer.start()
+        self._poll_timer = AdaptiveTimer(self, self.refresh, page="gpu", page_ms=POLL_MS, visible_ms=30000)
         self.refresh()
 
     # ---- polling -------------------------------------------------------------------

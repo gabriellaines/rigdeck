@@ -17,8 +17,6 @@ PageScroll {
     function unset(key) { return s[key] === -1 ? "Not set from RigDeck yet — the headset can't report it" : "" }
 
     Connections { target: headset; function onToast(m) { root.showToast(m) } }
-    onShownChanged: headset.setActive(shown)
-    Component.onCompleted: headset.setActive(shown)
 
     PageHeader {
         title: page.i.name || (page.bt ? "Headphones" : "Headset")

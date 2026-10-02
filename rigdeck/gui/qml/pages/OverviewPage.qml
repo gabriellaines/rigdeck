@@ -101,7 +101,8 @@ PageScroll {
                         FanSpinner {
                             anchors.centerIn: parent
                             rpm: page.coolerUp ? page.cool.live.fan : null
-                            visible: page.shown
+                            // the spinning animation is the costliest thing on screen: only while seen
+                            visible: page.shown && root.visible && root.visibility !== Window.Minimized
                         }
                     }
                     ColumnLayout {

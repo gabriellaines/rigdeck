@@ -6,12 +6,13 @@ only while something is connected.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QProcess, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QProcess, Signal, Slot
 
 from .. import bluez
+from .activity import AdaptiveTimer
 from .bridge import run_async
 
-POLL_MS = 5000
+POLL_MS = 10000
 
 
 class BluezWatcher(QObject):
@@ -23,7 +24,7 @@ class BluezWatcher(QObject):
         self._adapters: list[dict] = []
         self._devices: list[dict] = []
         self._reading = False
-        QTimer(self, interval=POLL_MS, timeout=self.refresh).start()
+        AdaptiveTimer(self, self.refresh, page="bluetooth", page_ms=5000, visible_ms=POLL_MS)
         self.refresh()
 
     @Slot()

@@ -47,7 +47,13 @@ ApplicationWindow {
     }
     function showToast(text) { toast.show(text) }
 
-    Component.onCompleted: if (startPage) navigate(startPage)
+    Component.onCompleted: { if (startPage) navigate(startPage); reportView() }
+    // backends poll only for what's on screen; nothing while minimised or hidden
+    function reportView() {
+        appState.setView(visible && visibility !== Window.Minimized && visibility !== Window.Hidden, currentId)
+    }
+    onVisibilityChanged: reportView()
+    onCurrentIdChanged: reportView()
     Connections { target: appState; function onToast(m) { root.showToast(m) } }
     Shortcut { sequence: StandardKey.Quit; onActivated: Qt.quit() }
 

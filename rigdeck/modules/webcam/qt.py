@@ -1,8 +1,9 @@
 """`webcam` in QML: camera list, grouped controls, live changes (coalesced) and reset."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import change, describe, reset, saved, v4l2
 
@@ -24,8 +25,7 @@ class WebcamBackend(QObject):
         self._pending: dict = {}    # changes waiting for the camera
         self._writing = False
         self._reading = False
-        self._timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self.refresh, page="webcam", page_ms=POLL_MS, visible_ms=60000)
         self.refresh()
 
     # ---- cameras and controls ----------------------------------------------------------

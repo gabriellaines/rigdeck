@@ -23,8 +23,7 @@ PageScroll {
         function onToast(m) { root.showToast(m) }
         function onStateChanged() { if (!page.dpiDirty) page.resetDraft() }
     }
-    Component.onCompleted: { resetDraft(); mouse.setActive(shown) }
-    onShownChanged: mouse.setActive(shown)
+    Component.onCompleted: resetDraft()
     // a different mouse: its draft starts from its own stages
     Connections { target: mouse; function onMiceChanged() { page.draft = []; page.resetDraft() } }
 

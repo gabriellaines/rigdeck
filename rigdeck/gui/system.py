@@ -1,10 +1,11 @@
 """`system` in QML: static system info plus live CPU / GPU / memory / storage telemetry."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal
+from PySide6.QtCore import Property, QObject, Signal
 
 from .. import hwinfo, sysinfo
 from ..sensors import CpuSensors
+from .activity import AdaptiveTimer
 from .bridge import run_async
 
 FAST_MS = 2000
@@ -26,11 +27,9 @@ class SystemBackend(QObject):
         self._load = hwinfo.CpuLoad()
         self._cards = hwinfo.gpu_cards()
         run_async(sysinfo.overview, self._got_info)
-        self._timer = QTimer(self, interval=FAST_MS, timeout=self._poll)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self._poll, visible_ms=FAST_MS)            # paused when hidden
         self._poll()
-        self._storage_timer = QTimer(self, interval=STORAGE_MS, timeout=self._poll_storage)
-        self._storage_timer.start()
+        self._storage_timer = AdaptiveTimer(self, self._poll_storage, page="storage", page_ms=STORAGE_MS)
         self._poll_storage()
 
     def _got_info(self, o):
