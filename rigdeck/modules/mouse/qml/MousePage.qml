@@ -182,6 +182,93 @@ PageScroll {
         }
     }
 
+    // ---- sensor (models with these settings, e.g. Attack Shark X11 Ultra)
+    Panel {
+        id: sensorPanel
+        Layout.fillWidth: true
+        readonly property var sn: page.s.sensor || null
+        visible: page.known && sn !== null
+        enabled: page.ok && !mouse.busy
+        title: "Sensor"
+        subtitle: "Saved on the mouse right away · names and options as in the maker's own software"
+        SettingRow {
+            title: "Competitive mode"
+            description: "MCU and sensor at full performance (the maker calls it Hunting Shark mode); uses more battery"
+            Toggle { checked: !!sensorPanel.sn && sensorPanel.sn.competitive; Accessible.name: "Competitive mode"
+                     onToggled: mouse.setSensor("competitive", checked) }
+        }
+        SettingRow {
+            visible: !!sensorPanel.sn && sensorPanel.sn.competitive
+            title: "Competitive mode timer"
+            description: "The maker's timer setting for this mode (its default is 1 minute)"
+            Segmented {
+                model: sensorPanel.sn ? sensorPanel.sn.competitiveTimes.map(t => t.label) : []
+                currentIndex: sensorPanel.sn ? sensorPanel.sn.competitiveTimes.findIndex(t => t.value === sensorPanel.sn.competitiveTime) : -1
+                minChipWidth: 44
+                onActivated: (ix) => mouse.setSensor("competitiveTime", sensorPanel.sn.competitiveTimes[ix].value)
+            }
+        }
+        SettingRow {
+            title: "Sensor mode"
+            description: "Above 1000 Hz the sensor switches to its top \"Corded\" mode by itself"
+            Segmented {
+                model: sensorPanel.sn ? sensorPanel.sn.sensorModes.map(m => m.label) : []
+                currentIndex: sensorPanel.sn ? sensorPanel.sn.sensorModes.findIndex(m => m.value === sensorPanel.sn.sensorMode) : -1
+                onActivated: (ix) => mouse.setSensor("sensorMode", sensorPanel.sn.sensorModes[ix].value)
+            }
+        }
+        SettingRow {
+            title: "20K FPS scan rate"
+            description: "The sensor takes up to 20,000 frames per second: more precise tracking, more power"
+            Toggle { checked: !!sensorPanel.sn && sensorPanel.sn.fps20k; Accessible.name: "20K FPS scan rate"
+                     onToggled: mouse.setSensor("fps20k", checked) }
+        }
+        SettingRow {
+            title: "Lift-off distance"
+            description: "How high you can lift the mouse before the cursor stops following it"
+            Segmented {
+                model: sensorPanel.sn ? sensorPanel.sn.lodOptions.map(o => o.label) : []
+                currentIndex: sensorPanel.sn ? sensorPanel.sn.lodOptions.findIndex(o => o.value === sensorPanel.sn.lod) : -1
+                onActivated: (ix) => mouse.setSensor("lod", sensorPanel.sn.lodOptions[ix].value)
+            }
+        }
+        SettingRow {
+            title: "Angle tuning"
+            description: "Rotates tracking so a sideways swipe stays straight for the way you hold the mouse"
+            Toggle { checked: !!sensorPanel.sn && sensorPanel.sn.angleTuneOn; Accessible.name: "Angle tuning"
+                     onToggled: mouse.setSensor("angleTuneOn", checked) }
+        }
+        SettingRow {
+            visible: !!sensorPanel.sn && sensorPanel.sn.angleTuneOn
+            title: "Angle"
+            Slider {
+                id: tune
+                Layout.preferredWidth: 220
+                from: sensorPanel.sn ? sensorPanel.sn.angleRange[0] : -30; to: sensorPanel.sn ? sensorPanel.sn.angleRange[1] : 30
+                stepSize: 1
+                value: sensorPanel.sn && sensorPanel.sn.angleTune !== null ? sensorPanel.sn.angleTune : 0
+                Accessible.name: "Angle tuning in degrees"
+                onPressedChanged: if (!pressed) mouse.setSensor("angleTune", Math.round(value))
+            }
+            Label { text: (Math.round(tune.value) > 0 ? "+" : "") + Math.round(tune.value) + "°"; color: theme.text
+                    font.pixelSize: 13; Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+        SettingRow {
+            title: "Button debounce"
+            description: "Delay that filters out accidental double clicks; raise it if a button double-clicks by itself"
+            Slider {
+                id: deb
+                Layout.preferredWidth: 220
+                from: 0; to: sensorPanel.sn ? sensorPanel.sn.maxDebounce : 15; stepSize: 1
+                value: page.s.debounce || 0
+                Accessible.name: "Button debounce in milliseconds"
+                onPressedChanged: if (!pressed) mouse.setSensor("debounce", Math.round(value))
+            }
+            Label { text: Math.round(deb.value) + " ms"; color: theme.text; font.pixelSize: 13
+                    Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight }
+        }
+    }
+
     // ---- light
     Panel {
         Layout.fillWidth: true

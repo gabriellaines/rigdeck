@@ -20,6 +20,7 @@ the only way to control some hardware.
 | ASUS Aura USB motherboard lighting (`0b05:18f3/1939/19af/1aa6/1bed`): board LEDs, RGB and ARGB headers — off, static, breathing, flashing, color cycle, rainbow | ✅ |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
+| Attack Shark X11 Ultra sensor settings: competitive mode, LP/HP sensor mode, 20K FPS scan, lift-off distance, angle tuning, debounce | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
 | Monitors over DDC/CI (via [ddcutil](https://www.ddcutil.com)): brightness (one or all), contrast, color preset, input, volume | ✅ (needs ddcutil) |
 | Network: Ethernet and Wi-Fi adapters, addresses, live traffic, nearby networks (NetworkManager) | ✅ |

@@ -222,6 +222,11 @@ class MouseBackend(QObject):
     def setSwitch(self, key, on):
         self._write({key: on})
 
+    @Slot(str, "QVariant")
+    def setSensor(self, key, value):
+        """competitive, competitiveTime, sensorMode, fps20k, angleTune, angleTuneOn, lod, debounce."""
+        self._write({key: value})
+
     @Slot(int)
     def setCurrentStage(self, i):
         self._write({"currentStage": i})
