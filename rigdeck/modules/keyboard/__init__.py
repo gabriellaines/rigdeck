@@ -164,7 +164,8 @@ def save_lighting(n: int, s: dict | None):
     table.pop(f"p{n}", None)
     if s is not None:
         table[f"p{n}"] = {"base": s["base"].lstrip("#").lower(),
-                          "keys": {f"z{zone(k):02x}": c.lstrip("#").lower() for k, c in s["keys"].items()}}
+                          "keys": {f"z{zone(k):02x}": c.lstrip("#").lower() for k, c in s["keys"].items()
+                                   if zone(k) is not None}}          # Fn has no LED
     config.save(cfg)
 
 

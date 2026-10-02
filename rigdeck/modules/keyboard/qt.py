@@ -8,7 +8,7 @@ from ...gui.bridge import run_async
 from ... import servicectl
 from . import (BRIGHTNESS_PRESETS, analog, analog_state, apply_custom, connected, custom, custom_lighting,
                edit_keys, effective, from_keyboard, read_state, save_custom, save_lighting, set_brightness)
-from .keymap import KEYS, LABELS, LAYOUT, MEDIA_LAYOUT
+from .keymap import KEYS, LABELS, LAYOUT, MEDIA_LAYOUT, zone
 
 KEY_IDS = {v: k for k, v in KEYS.items()}
 
@@ -117,7 +117,7 @@ class KeyboardBackend(QObject):
         """Colour the given keys (color '' = back to the background colour)."""
         li = custom_lighting(n) or {"base": "ffffff", "keys": {}}
         keys = dict(li["keys"])
-        for name in names:
+        for name in (x for x in names if zone(x) is not None):     # keys without an LED (Fn) are skipped
             if color and color.lower() != li["base"]:
                 keys[name] = color.lower()
             else:

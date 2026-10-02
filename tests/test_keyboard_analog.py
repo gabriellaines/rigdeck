@@ -128,3 +128,14 @@ def test_lighting_settings_round_trip(tmp_path, monkeypatch):
         keyboard.save_lighting(1, {"base": "red", "keys": {}})
     keyboard.save_lighting(1, None)
     assert keyboard.custom_lighting(1) is None
+
+
+def test_colouring_every_key_skips_fn(tmp_path, monkeypatch):
+    from rigdeck import config
+    from rigdeck.modules import keyboard
+    from rigdeck.modules.keyboard.keymap import KEYS, MEDIA_ZONES
+    monkeypatch.setattr(config, "PATH", str(tmp_path / "config.toml"))
+    every = {n: "ff0000" for n in [*KEYS.values(), *MEDIA_ZONES]}                # what "All" selects
+    keyboard.save_lighting(1, {"base": "000000", "keys": every})
+    saved = keyboard.custom_lighting(1)["keys"]
+    assert "Fn" not in saved and len(saved) == len(every) - 1
