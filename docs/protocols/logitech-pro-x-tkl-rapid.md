@@ -37,17 +37,70 @@ Read on firmware **U1 70.04 build 0020** (bootloader BL2 41.01), HID++ protocol 
 | 1 get | — | `[value hi, value lo]` |
 | 2 set | `[value hi, value lo]` | echo; any value 0–100 is accepted (50, 37 read back exactly) |
 
-## Next: decoding the analog settings
+## Onboard memory (`0x8101` PROFILE_MANAGEMENT), decoded from a G HUB capture
 
-Calling undocumented functions blind is unsafe (any of them may write to flash), so the plan is
-to observe G HUB instead:
+Decoded 2026-10-02 from a usbmon capture of G HUB 2026 in the win11 VM (`~/kbd-re/ghub-session1.pcap`),
+then **read back on Linux** (reads only). Analog settings are not commands: they are small files in
+the keyboard's flash, written through `0x8101` and tagged with the feature they belong to
+(`0x1b08` analog, `0x1b05` key customisation, `0x8101` profiles). Every file carries a CRC-32
+(standard zlib `crc32`, big-endian) that the keyboard checks; all of G HUB's writes matched it.
 
-1. Windows VM with G HUB, keyboard passed through; USBPcap + Wireshark on the VM.
-2. Capture while changing **one** thing at a time in G HUB: actuation point of one key, then all
-   keys; Rapid Trigger on/off; RT sensitivity; switching profiles F2–F5.
-3. Filter HID++ long reports (`0x11`) whose feature index matches `0x1b08`'s index (look it up with
-   root fn 0 on the same session) and diff the payloads between captures.
-4. Write down request/response layouts here, then verify each read on Linux before any write.
+| Fn | Request | Reply / meaning |
+|---:|---|---|
+| 0 getInfo | — | `01 02 00 80 05 80 7f 7f 07 14 ff ff ff 20 03 07` |
+| 1 list file slots | `[0, offset, 0]`, offsets 0x00/0x10/0x20 | `01 02 12 13 03 0c 0d 0e 0f 07 30 40` then 3-byte slots `e0 1b 08`, `e1 1b 08` … (`0x1b08` e0–e3, `0x1b05` e1–e3), `ff` ends |
+| 2 start write | `[len hi, len lo, 0]` | — |
+| 3 write chunk | 16 data bytes | reply `[0, chunk counter]` |
+| 6 | `0f` / `00` / `05` | status / mode around writes — **don't send** until understood (Solaar: RGB takeover) |
+| 8 open for read | `[bank, sector, len hi, len lo]` | — (read-verified on Linux) |
+| 9 commit | `[feature hi, lo][file][02][len 3 B][crc32 4 B]` | stores the written buffer as that feature's file |
+| 9 activate | `[feature hi, lo][file][00][dir entry][len 2 B][crc32 4 B]` | points the file back at an existing stored copy (G HUB's "reset to default") |
+| 12 read | `[offset hi, offset lo]` | next 16 bytes of the opened sector (read-verified) |
+
+**Banks / sectors** (fn 8): bank 1 = factory copies (sector 0 directory, 1–3 profiles, 4 a 0xbe file);
+bank 0 = writable flash. Bank 0 sector 0 is the directory (0x400 bytes): 4-byte header, entry count,
+then 10-byte entries `[entry id][feature 2 B][flags|len hi][len lo][crc32 4 B][sector]`; `ff` ends.
+Read on 2026-10-02: entries 1–3 = `0x8101` profiles (0x6d bytes, sectors 8/9/0a, UTF-16 name
+`PROFILE_NAME` inside), 4 = `0x1b08` 0xbe file (sector 0b, 94 keys × `05`), 7 = `0x1b08` actuation
+(0xce bytes, sector 10).
+
+### `0x1b08` files
+
+All are `[count hi, count lo]` + `count` × `[key id, value]`, values in **0.1 mm**.
+
+| File | Meaning | Seen |
+|---:|---|---|
+| 0 | actuation point per key | 102 keys, default `0x14` = 2.0 mm; one key → 1.0 mm; "all keys" changed 87 keys (0x00–0x56), the other 15 (modifiers?) stayed 2.0 |
+| 1 | Rapid Trigger keys + sensitivity | empty = off; `00 01 1d 0a` = key 0x1d at 1.0 mm, then `1d 05` = 0.5 mm |
+| 2, 3 | unknown (always written empty `00 00`) | |
+
+Key ids are the keyboard's own (0x1d was the key changed in the "one key" step, most likely **W**;
+confirm with the live stream below). `0x1b05` files 1–3 were also written empty at G HUB start.
+
+**Applying** (G HUB order): file 0 then 1 then 3, each as fn 2 (length) → fn 3 chunks → fn 9 commit.
+Changes take effect at once.
+
+### `0x1b08` functions
+
+| Fn | Request | Meaning |
+|---:|---|---|
+| 0 getInfo | — | `01 05 80 28`: 0x28 = 4.0 mm total travel (0.1 mm units) |
+| 1 | — | `00 …` |
+| 2 | `[0/1]` | toggled by G HUB around file writes (meaning unknown) |
+| 3 | `[0/1]` | live key-depth stream on/off: events `fn 0 [key id][depth 0.1 mm]`, e.g. key 0x42 0→0x28→0 |
+
+## Lighting (`0x8071` RGB_EFFECTS)
+
+Colour changes in G HUB were single fn 1 calls, not files:
+`fn1 [zone 0][effect 01 = static][R G B][02 …][… 01]`, e.g. `00 01 f8 2f 25 02 00 00 00 00 00 00 01`.
+Each is followed by `0x1b05` fn 1 (reply `01`).
+
+## Still to decode
+
+- Exact key-id → key map (live stream while pressing keys on Linux).
+- `0x8101` fn 6 and `0x1b08` fn 2 semantics, before RigDeck sends either.
+- Onboard profile switching (G HUB re-committed profile files 1→2→3→1 at 171–178 s).
+- How "save lighting to onboard memory" is stored (no lighting file write was seen).
 
 ## Capture session guide (G HUB in a Windows VM, recorded on Linux)
 
