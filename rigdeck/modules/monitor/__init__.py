@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 
+from ... import vibrance
 from ..base import Module, RigdeckError
 from . import ddc
 
@@ -131,6 +132,25 @@ def cli_set(a):
             print(f"{m['name']}: {k} = {v}")
 
 
+def cli_vibrance(a):
+    if not vibrance.available():
+        raise RigdeckError("colour vibrance needs KDE Plasma on Wayland (kscreen-doctor)")
+    outs = vibrance.outputs()
+    if a.level is None:
+        for o in outs:
+            note = " (HDR on: not available)" if o["hdr"] else ""
+            print(f"{o['name']:<10}{o['level']}%" + ("  (normal)" if o["level"] == vibrance.NEUTRAL else "") + note)
+        return
+    if not 0 <= a.level <= 100:
+        raise ValueError("vibrance is 0–100 % (50 = normal, like NVIDIA's Digital Vibrance)")
+    targets = [o["name"] for o in outs if a.monitor in (None, o["name"])]
+    if not targets:
+        raise RigdeckError(f"no monitor {a.monitor}; see `rigdeck monitor vibrance`")
+    for name in targets:
+        vibrance.apply(name, a.level)
+        print(f"{name}: vibrance {a.level}%")
+
+
 class MonitorModule(Module):
     id = "monitor"
     title = "Monitors"
@@ -139,7 +159,7 @@ class MonitorModule(Module):
     order = 64
 
     def detect(self) -> bool:
-        return ddc.installed() and os.path.isdir("/sys/class/drm")
+        return (ddc.installed() and os.path.isdir("/sys/class/drm")) or vibrance.available()
 
     def add_cli(self, sub):
         p = sub.add_parser("monitor", help="monitor brightness, contrast, color preset, input (DDC/CI)")
@@ -151,6 +171,10 @@ class MonitorModule(Module):
         s.add_argument("values", nargs="+", metavar="KEY=VALUE")
         s.add_argument("--monitor", type=int, metavar="N")
         s.set_defaults(func=cli_set)
+        v = ms.add_parser("vibrance", help="colour vibrance like NVIDIA's Digital Vibrance (50 = normal)")
+        v.add_argument("level", type=int, nargs="?", help="0–100; omit to show the current levels")
+        v.add_argument("--monitor", metavar="NAME", help="connector, e.g. DP-2 (default: all)")
+        v.set_defaults(func=cli_vibrance)
 
     def qml_page(self):
         return os.path.join(os.path.dirname(__file__), "qml", "MonitorPage.qml")

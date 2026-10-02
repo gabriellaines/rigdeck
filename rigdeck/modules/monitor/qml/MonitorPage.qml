@@ -29,7 +29,7 @@ PageScroll {
         onClicked: appState.openUrl("https://www.ddcutil.com/install/")
     }
     Banner {
-        visible: monitor.status === "none"
+        visible: monitor.status === "none" && !monitor.vibranceAvailable
         text: "No monitor answered. Make sure DDC/CI is turned on in each monitor's own menu (often under "
               + "Settings or OSD). Laptop screens and some TVs don't support it."
         buttonText: "Check again"
@@ -41,6 +41,47 @@ PageScroll {
         text: monitor.error
         buttonText: "Retry"
         onClicked: monitor.refresh()
+    }
+
+    // ---- colour vibrance (like NVIDIA's Digital Vibrance), through KWin's per-monitor colour profiles
+    Panel {
+        id: vib
+        Layout.fillWidth: true
+        visible: monitor.vibranceAvailable && monitor.vibranceOutputs.length > 0
+        enabled: !monitor.vibranceBusy
+        title: "Colour vibrance"
+        subtitle: "Like NVIDIA's Digital Vibrance: 50% is normal, higher makes colours more vivid, greys stay grey. Applies to everything on screen, games included."
+        function nameOf(conn) {
+            const m = page.mons.find(x => x.connector === conn)
+            return m ? m.name + " (" + conn + ")" : conn
+        }
+        SettingRow {
+            visible: monitor.vibranceOutputs.length > 1
+            title: "All monitors"
+            Slider { id: vall; Layout.preferredWidth: 240; from: 0; to: 100; stepSize: 5
+                     value: monitor.vibranceOutputs.length ? monitor.vibranceOutputs[0].level : 50
+                     Accessible.name: "Vibrance of all monitors"
+                     onPressedChanged: if (!pressed) monitor.setVibrance("", Math.round(value)) }
+            Label { text: Math.round(vall.value) + "%"; color: theme.text; font.pixelSize: 13
+                    Layout.preferredWidth: 44; horizontalAlignment: Text.AlignRight }
+            Button { text: "Normal"; onClicked: monitor.setVibrance("", 50) }
+        }
+        Repeater {
+            model: monitor.vibranceOutputs
+            SettingRow {
+                id: vrow
+                readonly property var o: modelData
+                title: vib.nameOf(o.name)
+                description: o.hdr ? "HDR is on — vibrance works on SDR screens" : ""
+                enabled: !o.hdr
+                Slider { id: vs; Layout.preferredWidth: 240; from: 0; to: 100; stepSize: 5; value: vrow.o.level
+                         Accessible.name: "Vibrance of " + vrow.o.name
+                         onPressedChanged: if (!pressed) monitor.setVibrance(vrow.o.name, Math.round(value)) }
+                Label { text: Math.round(vs.value) + "%"; color: theme.text; font.pixelSize: 13
+                        Layout.preferredWidth: 44; horizontalAlignment: Text.AlignRight }
+                Button { text: "Normal"; enabled: vrow.o.level !== 50; onClicked: monitor.setVibrance(vrow.o.name, 50) }
+            }
+        }
     }
 
     // ---- all monitors at once

@@ -6,6 +6,7 @@ from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import ddc, monitors, set_value
+from ... import vibrance
 
 POLL_MS = 30000          # values can also change with the monitor's own buttons
 INPUT_CONFIRM_S = 10
@@ -28,6 +29,11 @@ class MonitorBackend(QObject):
         self._left = 0
         self._countdown = QTimer(self, interval=1000, timeout=self._tick)
         self._timer = AdaptiveTimer(self, self.refresh, page="monitor", page_ms=POLL_MS, visible_ms=300000)
+        self._vib: list = []
+        self._vib_ok = vibrance.available()
+        self._vib_busy = False
+        if self._vib_ok:
+            AdaptiveTimer(self, self.refreshVibrance, page="monitor", page_ms=POLL_MS, start_now=True)
         self.refresh()
 
     # ---- reading -------------------------------------------------------------------------
@@ -67,6 +73,44 @@ class MonitorBackend(QObject):
                 "status": {"ok": "Connected", "none": "None found", "loading": "…",
                            "not-installed": "Needs ddcutil", "error": "Error"}[st],
                 "connected": st == "ok", "tone": "live" if st == "ok" else "warning", "battery": None}
+
+    # ---- colour vibrance (KWin ICC profiles) -------------------------------------------------
+
+    vibranceChanged = Signal()
+
+    @Slot()
+    def refreshVibrance(self):
+        def got(outs):
+            self._vib = outs
+            self.vibranceChanged.emit()
+        run_async(vibrance.outputs, got, lambda e: None)
+
+    vibranceAvailable = Property(bool, lambda self: self._vib_ok, constant=True)
+    vibranceOutputs = Property("QVariantList", lambda self: self._vib, notify=vibranceChanged)
+    vibranceBusy = Property(bool, lambda self: self._vib_busy, notify=vibranceChanged)
+
+    @Slot(str, int)
+    def setVibrance(self, output, level):
+        """output '' = every monitor."""
+        if self._vib_busy:
+            return
+        self._vib_busy = True
+        self.vibranceChanged.emit()
+        names = [o["name"] for o in self._vib if not o["hdr"] and output in ("", o["name"])]
+
+        def work():
+            for n in names:
+                vibrance.apply(n, level)
+
+        def done(_):
+            self._vib_busy = False
+            self.refreshVibrance()
+
+        def failed(e):
+            self._vib_busy = False
+            self.toast.emit(f"Vibrance: {e}")
+            self.refreshVibrance()
+        run_async(work, done, failed)
 
     # ---- writing (one ddcutil call at a time, in order) -------------------------------------
 
