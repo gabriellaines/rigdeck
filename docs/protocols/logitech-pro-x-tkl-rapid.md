@@ -51,7 +51,7 @@ the keyboard's flash, written through `0x8101` and tagged with the feature they 
 | 1 list file slots | `[0, offset, 0]`, offsets 0x00/0x10/0x20 | `01 02 12 13 03 0c 0d 0e 0f 07 30 40` then 3-byte slots `e0 1b 08`, `e1 1b 08` … (`0x1b08` e0–e3, `0x1b05` e1–e3), `ff` ends |
 | 2 start write | `[len hi, len lo, 0]` | — |
 | 3 write chunk | 16 data bytes | reply `[0, chunk counter]` |
-| 6 | `0f` / `00` / `05` | status / mode around writes — **don't send** until understood (Solaar: RGB takeover) |
+| 6 | `0f` / `00` / `05` | `0f` reads a status (`03 00 01` in onboard mode, profile 1; G HUB's `05` changes it) — only `0f` is sent by RigDeck |
 | 8 open for read | `[bank, sector, len hi, len lo]` | — (read-verified on Linux) |
 | 9 commit | `[feature hi, lo][file][02][len 3 B][crc32 4 B]` | stores the written buffer as that feature's file |
 | 9 activate | `[feature hi, lo][file][00][dir entry][len 2 B][crc32 4 B]` | points the file back at an existing stored copy (G HUB's "reset to default") |
@@ -93,6 +93,14 @@ written empty at G HUB start.
 
 **Applying** (G HUB order): file 0 then 1 then 3, each as fn 2 (length) → fn 3 chunks → fn 9 commit.
 Changes take effect at once.
+
+**Verified on Linux 2026-10-02** (keyboard in normal onboard mode, `0x8101` fn 6 `0f` → `03 00 01`,
+no G HUB "software mode" needed): writing file 0 with only W (0x1d) at 1.0 mm was accepted (CRC
+`f41d75cf`, identical to G HUB's) and W then fired at 1.0 mm while E fired at 2.0 mm (measured with
+the live depth stream at the moment of the HID key-down). **These writes are live, not stored**: the
+directory and the profiles were unchanged afterwards. fn 9 *activate* `1b 08 00 00 07 00 ce <crc of
+entry 7>` put it back to the stored file (W 2.0 mm again). Still unknown: whether live settings
+survive a profile switch, unplugging, or sleep.
 
 ### `0x1b08` functions
 
