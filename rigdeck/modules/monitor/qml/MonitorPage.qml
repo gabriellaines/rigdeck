@@ -50,7 +50,7 @@ PageScroll {
         visible: monitor.vibranceAvailable && monitor.vibranceOutputs.length > 0
         enabled: !monitor.vibranceBusy
         title: "Colour vibrance"
-        subtitle: "Like NVIDIA's Digital Vibrance: 50% is normal, higher makes colours more vivid, greys stay grey. Applies to everything on screen, games included."
+        subtitle: "Makes colours more vivid on everything, games included (like NVIDIA's Digital Vibrance). 50% is normal."
         function nameOf(conn) {
             const m = page.mons.find(x => x.connector === conn)
             return m ? m.name + " (" + conn + ")" : conn
