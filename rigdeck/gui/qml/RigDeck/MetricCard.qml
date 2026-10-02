@@ -13,6 +13,7 @@ Card {
     property color valueColor: theme.text
     implicitHeight: col.implicitHeight + 32
     implicitWidth: 180
+    Layout.fillHeight: true      // cards in one row share its height
 
     ColumnLayout {
         id: col
@@ -41,12 +42,13 @@ Card {
             }
         }
         Label {
-            text: root.detail
+            // always takes its line, so cards with and without a detail are the same height
+            text: root.detail !== "" ? root.detail : " "
             color: theme.muted
             font.pixelSize: 12
             elide: Text.ElideRight
             Layout.fillWidth: true
-            visible: text !== ""
         }
+        Item { Layout.fillHeight: true }
     }
 }

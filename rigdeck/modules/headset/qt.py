@@ -1,8 +1,9 @@
 """`headset` in QML: battery and settings through HeadsetControl."""
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import change, hc, saved
 
@@ -23,18 +24,10 @@ class HeadsetBackend(QObject):
         self._settings = saved()
         self._polling = False
         self._busy = False
-        self._timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self.refresh, page="headset", page_ms=POLL_PAGE_MS, visible_ms=POLL_MS)
         self.refresh()
 
     # ---- polling ---------------------------------------------------------------------
-
-    @Slot(bool)
-    def setActive(self, on):
-        """The Headset page tells us when it's visible."""
-        self._timer.setInterval(POLL_PAGE_MS if on else POLL_MS)
-        if on:
-            self.refresh()
 
     @Slot()
     def refresh(self):

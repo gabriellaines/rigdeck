@@ -99,3 +99,50 @@ def test_fewer_stages_moves_the_active_stage(fake):
     fake.flash[compx.OFF_CURRENT_STAGE:compx.OFF_CURRENT_STAGE + 2] = compx.pair(3)
     mouse.change(DEV, {"stageCount": 2})
     assert mouse.read_state(DEV)["currentStage"] == 1
+
+
+# ---- Attack Shark X11 Ultra sensor settings ---------------------------------------------
+
+def x11_flash() -> bytes:
+    """Settings area with the values read from a real X11 Ultra (sensor fields included)."""
+    f = bytearray(PULSAR) + bytearray(256 - len(PULSAR))
+    for off, v in ((10, 3), (169, 0), (181, 0), (183, 6), (185, 1), (189, 255), (191, 1), (225, 0)):
+        f[off:off + 2] = compx.pair(v)
+    return bytes(f)
+
+
+X11 = {"node": "/dev/hidraw8", "pid": 0xF517, "model": "x11-ultra"}
+
+
+@pytest.fixture
+def x11(monkeypatch, tmp_path):
+    m = FakeMouse(X11["node"], flash=x11_flash(), info={"cid": 124, "mid": 11, "type": 5})
+    monkeypatch.setattr(compx, "Mouse", lambda node: m)
+    monkeypatch.setattr(mouse, "BACKUP_DIR", str(tmp_path))
+    mouse._backed_up.clear()
+    return m
+
+
+def test_x11_sensor_settings_read(x11):
+    sn = mouse.read_state(X11)["sensor"]
+    assert (sn["competitive"], sn["competitiveTime"], sn["sensorMode"], sn["fps20k"]) == (False, 6, 1, False)
+    assert (sn["lod"], sn["angleTuneOn"], sn["angleTune"]) == (3, True, -1)      # 0.7 mm; 255 = -1°
+
+
+def test_x11_sensor_writes(x11):
+    mouse.change(X11, {"competitive": True})
+    mouse.change(X11, {"angleTune": -12})
+    assert x11.writes[-3:] == [(compx.OFF_PERF_STATE, compx.pair(1)),
+                               (compx.OFF_ANGLE_TUNE_STATE, compx.pair(1)),      # tuning switched on first
+                               (compx.OFF_ANGLE_TUNE, compx.pair(244))]          # -12 stored as 244
+    with pytest.raises(compx.MouseError):
+        mouse.change(X11, {"competitiveTime": 7})                                # not a vendor option
+    with pytest.raises(compx.MouseError):
+        mouse.change(X11, {"debounce": 20})
+
+
+def test_pulsar_has_no_sensor_panel(fake):
+    assert mouse.read_state(DEV)["sensor"] is None
+    with pytest.raises(compx.MouseError, match="doesn't have this setting"):
+        mouse.change(DEV, {"fps20k": True})
+    assert fake.writes == []

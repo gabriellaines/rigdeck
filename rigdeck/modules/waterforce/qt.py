@@ -7,6 +7,7 @@ import threading
 from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 
 from ... import config
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from ...sensors import CpuSensors
 from . import Screen, add_to_carousel, delete_media, effects, media, set_led
@@ -56,8 +57,7 @@ class CoolerBackend(QObject):
         self._progress = -1.0
         self._led_timer = QTimer(self, singleShot=True, interval=150, timeout=self._send_led)
         self._screen_timer = QTimer(self, singleShot=True, interval=400, timeout=self._send_screen)
-        self._poll_timer = QTimer(self, interval=2000, timeout=self._poll)
-        self._poll_timer.start()
+        self._poll_timer = AdaptiveTimer(self, self._poll, visible_ms=2000)
         self.reload()
 
     # ---- device access ------------------------------------------------------

@@ -12,14 +12,19 @@ the only way to control some hardware.
 | GIGABYTE AORUS ELITE 240 / 360 AIOs (`0414:7a69`–`7a6c`) | 🧪 same protocol family, untested |
 | GPUs: temperatures, fan, power, clocks, VRAM, drivers | ✅ monitoring |
 | GPU fan mode, curve, **zero-RPM on/off**, power limit (via [LACT](https://github.com/ilya-zlobintsev/LACT)) | ✅ |
-| Processor, memory (incl. zram), storage (incl. NVMe temperature) | ✅ monitoring |
+| Resources: live CPU, memory, disk, network and GPU graphs (like Task Manager's Performance tab) | ✅ |
+| Processor: per-thread load graphs, clocks, caches, virtualization, instruction sets, frequency driver | ✅ |
+| Memory: modules from their SPD chips (maker, part number, size, XMP rating), usage history, zram | ✅ |
+| Storage: live read/write, SMART health via UDisks2 (NVMe wear, data written, power-on hours; SATA bad sectors) | ✅ |
 | Motherboard: model, BIOS, board temperatures, fan headers (Nuvoton `nct6775` / ITE `it87` sensors) | ✅ monitoring · 🛠️ fan control planned |
 | ASUS Aura USB motherboard lighting (`0b05:18f3/1939/19af/1aa6/1bed`): board LEDs, RGB and ARGB headers — off, static, breathing, flashing, color cycle, rainbow | ✅ |
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
+| Attack Shark X11 Ultra sensor settings: competitive mode, LP/HP sensor mode, 20K FPS scan, lift-off distance, angle tuning, debounce | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
 | Monitors over DDC/CI (via [ddcutil](https://www.ddcutil.com)): brightness (one or all), contrast, color preset, input, volume | ✅ (needs ddcutil) |
-| Wi-Fi, Ethernet and Bluetooth status (NetworkManager / BlueZ), Bluetooth device batteries | ✅ |
+| Network: Ethernet and Wi-Fi adapters, addresses, live traffic, nearby networks (NetworkManager) | ✅ |
+| Bluetooth devices with battery (BlueZ), also on their own pages (headphones on Headset, …) | ✅ |
 | Webcams (any UVC camera, e.g. Logitech C920): brightness, white balance, exposure, focus, zoom, live preview | ✅ |
 
 ## Install
@@ -101,7 +106,8 @@ rigdeck keyboard brightness 50                 # keyboard lighting, 0 = off
 rigdeck motherboard                            # board, BIOS, temperatures, fan headers
 rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
 rigdeck monitor status                         # every monitor's controls
-rigdeck network                                # Wi-Fi, Ethernet and Bluetooth status
+rigdeck network                                # Ethernet, Wi-Fi and Bluetooth status
+rigdeck bluetooth                              # adapters and your Bluetooth devices
 rigdeck monitor set brightness=40              # all monitors (or --monitor N)
 rigdeck webcam status                          # all controls and their values
 rigdeck webcam set brightness=140 focus_automatic_continuous=off

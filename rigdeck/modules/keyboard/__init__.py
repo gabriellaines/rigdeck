@@ -77,6 +77,7 @@ class KeyboardModule(Module):
     icon = "keyboard"
     kind = "peripheral"
     order = 61
+    bluetooth = ("keyboard",)
 
     def detect(self) -> bool:
         return bool(connected())

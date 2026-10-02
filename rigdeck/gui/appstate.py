@@ -8,6 +8,7 @@ from PySide6.QtCore import Property, QObject, QProcess, QTimer, QUrl, Signal, Sl
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 
 from .. import REPO, __version__, config, servicectl, updater
+from .activity import AdaptiveTimer, activity
 from .bridge import on_main, run_async
 
 
@@ -39,11 +40,15 @@ class AppState(QObject):
         self._service = "unknown"
         self._update = {"state": "idle", "current": __version__, "latest": "", "url": "",
                         "notes": "", "method": updater.install_method(), "log": "", "error": ""}
-        self._svc_timer = QTimer(self, interval=5000, timeout=self.refreshService)
-        self._svc_timer.start()
+        self._svc_timer = AdaptiveTimer(self, self.refreshService, page="settings", page_ms=5000, visible_ms=15000)
         self.refreshService()
         if self._check_updates:
             QTimer.singleShot(1500, lambda: self.checkUpdates(True))
+
+    @Slot(bool, str)
+    def setView(self, visible, page):
+        """The window reports whether it's visible and which page is open; polling follows."""
+        activity().set(bool(visible), page)
 
     # ---- navigation
     nav = Property("QVariantList", lambda self: self._nav, notify=navChanged)

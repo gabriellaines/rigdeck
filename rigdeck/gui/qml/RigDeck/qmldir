@@ -21,3 +21,5 @@ PageScroll 1.0 PageScroll.qml
 Toggle 1.0 Toggle.qml
 SettingRow 1.0 SettingRow.qml
 ColorSwatches 1.0 ColorSwatches.qml
+BluetoothDevices 1.0 BluetoothDevices.qml
+HistoryChart 1.0 HistoryChart.qml

@@ -19,6 +19,10 @@ class _SystemPage(Module):
         return os.path.join(PAGES, self.page_file)
 
 
+class ResourcesModule(_SystemPage):
+    id, title, icon, order, page_file = "resources", "Resources", "activity", 5, "ResourcesPage.qml"
+
+
 class ProcessorModule(_SystemPage):
     id, title, icon, order, page_file = "cpu", "Processor", "cpu", 30, "ProcessorPage.qml"
 

@@ -35,12 +35,25 @@ ApplicationWindow {
                                  .concat([{ id: "settings", title: "Settings", icon: "settings",
                                             page: Qt.resolvedUrl("pages/SettingsPage.qml") }])
 
+    readonly property var sidebarPages: pages.filter(p => p.id !== "settings" && inSidebar(p))
+    // Pages whose device may only be connected through Bluetooth appear while it is.
+    function inSidebar(p) {
+        if (p.static !== false) return true
+        const bt = p.bt || []
+        return bt.indexOf("*") >= 0 ? bluez.connectedCount > 0 : bt.some(c => bluez.categories.indexOf(c) >= 0)
+    }
     function navigate(id) {
         if (pages.some(p => p.id === id)) currentId = id
     }
     function showToast(text) { toast.show(text) }
 
-    Component.onCompleted: if (startPage) navigate(startPage)
+    Component.onCompleted: { if (startPage) navigate(startPage); reportView() }
+    // backends poll only for what's on screen; nothing while minimised or hidden
+    function reportView() {
+        appState.setView(visible && visibility !== Window.Minimized && visibility !== Window.Hidden, currentId)
+    }
+    onVisibilityChanged: reportView()
+    onCurrentIdChanged: reportView()
     Connections { target: appState; function onToast(m) { root.showToast(m) } }
     Shortcut { sequence: StandardKey.Quit; onActivated: Qt.quit() }
 
@@ -117,12 +130,12 @@ ApplicationWindow {
                     anchors.rightMargin: 9
                     spacing: 4
                     Repeater {
-                        model: root.pages.filter(p => p.id !== "settings")
+                        model: root.sidebarPages
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 4
                             readonly property bool firstPeripheral: modelData.kind === "peripheral"
-                                && root.pages.findIndex(p => p.kind === "peripheral") === index
+                                && root.sidebarPages.findIndex(p => p.kind === "peripheral") === index
                             Label {
                                 visible: parent.firstPeripheral && !root.compact
                                 text: "Peripherals"

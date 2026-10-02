@@ -9,7 +9,15 @@ PageScroll {
     readonly property var m: system.live.memory || ({})
     function gib(b) { return b === undefined ? "—" : (b / 1073741824).toLocaleString(Qt.locale(), "f", 1) }
 
-    PageHeader { title: "Memory"; subtitle: page.gib(page.m.total) + " GiB installed"; status: "Live" }
+    readonly property var mods: usage.modules
+    PageHeader {
+        title: "Memory"
+        subtitle: page.mods.length
+                  ? page.mods.length + " × " + page.mods[0].sizeGB + " GB " + page.mods[0].type
+                    + (page.mods[0].xmpMTs ? "-" + page.mods[0].xmpMTs : "") + " · " + page.gib(page.m.total) + " GiB usable"
+                  : page.gib(page.m.total) + " GiB installed"
+        status: "Live"
+    }
     GridLayout {
         Layout.fillWidth: true
         columns: page.pageWidth >= 900 ? 4 : page.pageWidth >= 520 ? 2 : 1
@@ -29,6 +37,51 @@ PageScroll {
         Label { text: "Apps use " + page.gib(page.m.used) + " GiB. Cache doesn't count as used: Linux keeps recently read files in spare memory and gives it back instantly."
                 color: theme.muted; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     }
+    Panel {
+        Layout.fillWidth: true
+        title: "In use over the last minute"
+        HistoryChart { Layout.fillWidth: true; implicitHeight: 120; values: usage.history.memory || []
+                       length: usage.historyLength }
+    }
+
+    // ---- installed modules (from each module's SPD chip)
+    Panel {
+        Layout.fillWidth: true
+        visible: page.mods.length > 0
+        title: "Modules"
+        subtitle: "Read from each module's own SPD chip. The speed it actually runs at (XMP/EXPO on or off) is set in the BIOS."
+        GridLayout {
+            Layout.fillWidth: true
+            columns: page.pageWidth >= 900 ? 2 : 1
+            columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
+            Repeater {
+                model: page.mods
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: col.implicitHeight + 28
+                    radius: theme.radius
+                    color: theme.raised
+                    border.color: theme.border
+                    ColumnLayout {
+                        id: col
+                        anchors.fill: parent; anchors.margins: 14
+                        spacing: 4
+                        Label { text: [modelData.maker, modelData.part].filter(t => t).join(" ")
+                                color: theme.text; font.pixelSize: 14; font.weight: Font.DemiBold }
+                        Label { text: [modelData.sizeGB ? modelData.sizeGB + " GB" : "", modelData.type, modelData.form,
+                                       modelData.ranks ? modelData.ranks + (modelData.ranks === 1 ? " rank" : " ranks") : ""]
+                                      .filter(t => t).join(" · ")
+                                color: theme.muted; font.pixelSize: 12 }
+                        KeyValue { visible: !!modelData.xmpMTs; key: "Rated (XMP)"
+                                   value: (modelData.xmpMTs || "") + " MT/s at " + (modelData.xmpVolts || "") + " V" }
+                        KeyValue { visible: !!modelData.jedecMTs; key: "Default (JEDEC)"; value: (modelData.jedecMTs || "") + " MT/s" }
+                        KeyValue { key: "SPD address"; value: modelData.address }
+                    }
+                }
+            }
+        }
+    }
+
     Panel {
         Layout.fillWidth: true
         visible: (page.m.zram || []).length > 0

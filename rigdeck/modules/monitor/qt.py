@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import ddc, monitors, set_value
 
@@ -26,8 +27,7 @@ class MonitorBackend(QObject):
         self._revert: tuple | None = None   # (bus, old input, monitor name) while asking to keep
         self._left = 0
         self._countdown = QTimer(self, interval=1000, timeout=self._tick)
-        self._timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
-        self._timer.start()
+        self._timer = AdaptiveTimer(self, self.refresh, page="monitor", page_ms=POLL_MS, visible_ms=300000)
         self.refresh()
 
     # ---- reading -------------------------------------------------------------------------

@@ -32,6 +32,9 @@ OFF_RATE, OFF_STAGES, OFF_CURRENT_STAGE, OFF_LOD = 0, 2, 4, 10
 OFF_DPI, OFF_DPI_COLOR = 12, 44
 OFF_LED_MODE, OFF_LED_BRIGHTNESS, OFF_LED_SPEED, OFF_LED_STATE = 76, 78, 80, 82
 OFF_DEBOUNCE, OFF_MOTION_SYNC, OFF_SLEEP, OFF_ANGLE_SNAP, OFF_RIPPLE = 169, 171, 173, 175, 177
+# Sensor settings of the X11 Ultra (from the vendor's web configurator, all [v, 0x55-v] pairs):
+OFF_PERF_STATE, OFF_PERF_TIME, OFF_SENSOR_MODE = 181, 183, 185      # competitive mode on/off, its timer, LP/HP
+OFF_ANGLE_TUNE, OFF_ANGLE_TUNE_STATE, OFF_FPS20K = 189, 191, 225     # rotation (signed, +256), on/off, 20K FPS
 SETTINGS_SIZE = 256  # everything above lives below this; read it all for a backup
 
 RATE_CODES = {125: 0x08, 250: 0x04, 500: 0x02, 1000: 0x01, 2000: 0x10, 4000: 0x20, 8000: 0x40}

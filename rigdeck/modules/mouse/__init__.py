@@ -22,7 +22,8 @@ MAX_STAGES = 8
 # Known models: USB product ids, the handshake's model id (cid, mid) and the sensor's DPI range.
 MODELS = {
     "x11-ultra": {"name": "Attack Shark X11 Ultra", "pids": {0xF517: "wireless", 0xF515: "cable"},
-                  "cid_mid": (124, 11), "dpi": (50, 30000, 60000)},   # PAW3950; >30000 in steps of 100
+                  "cid_mid": (124, 11), "dpi": (50, 30000, 60000),    # PAW3950; >30000 in steps of 100
+                  "sensor": True},                                     # competitive mode, LP/HP, 20K FPS…
     "pulsar": {"name": "Pulsar Xlite V3", "pids": {0xF509: "wireless", 0xF508: "wireless", 0xF507: "cable"},
                "cid_mid": (6, 15), "dpi": (50, 26000, 26000)},          # PAW3395
 }
@@ -30,6 +31,13 @@ PIDS = {pid: key for key, m in MODELS.items() for pid in m["pids"]}
 # Handshake connection type -> fastest polling rate
 MAX_RATE = {0: 1000, 1: 4000, 2: 1000, 3: 8000, 4: 2000, 5: 8000}
 LED_MODES = {1: "steady", 2: "breathing"}
+# Sensor settings (models with "sensor": True), values as the vendor's configurator offers them
+LOD_OPTIONS = [(3, "0.7 mm"), (1, "1 mm"), (2, "2 mm")]                       # PAW3950
+COMPETITIVE_TIMES = [(1, "10 s"), (3, "30 s"), (6, "1 min"), (12, "2 min"), (30, "5 min"), (60, "10 min"),
+                     (90, "15 min")]                                          # in units of 10 s
+SENSOR_MODES = [(0, "Low power"), (1, "High performance")]                   # "Corded" engages by itself
+ANGLE_TUNE_RANGE = (-30, 30)
+MAX_DEBOUNCE = 15
 
 
 def connected() -> list[dict]:
@@ -60,6 +68,7 @@ def read_state(dev: dict) -> dict:
         colors = m.read(compx.OFF_DPI_COLOR, MAX_STAGES * 4)
         led = m.read(compx.OFF_LED_MODE, 8)
         tail = m.read(compx.OFF_DEBOUNCE, 10)      # debounce, motion sync, sleep, angle snap, ripple
+        sensor = m.read(compx.OFF_PERF_STATE, 12) + m.read(compx.OFF_FPS20K, 2) if model.get("sensor") else b""
         battery = m.battery()
     count = compx.unpair(head[2:4]) or 1
     lo, simple, top = model["dpi"]
@@ -81,7 +90,21 @@ def read_state(dev: dict) -> dict:
         "angleSnap": compx.unpair(tail[6:8]) == 1,
         "ripple": compx.unpair(tail[8:10]) == 1,
         "debounce": compx.unpair(tail[0:2]),
+        "sensor": _sensor(head, sensor) if sensor else None,
     }
+
+
+def _sensor(head: bytes, b: bytes) -> dict:
+    """X11 Ultra sensor settings from bytes 181..192 and 225..226 (None where unset)."""
+    tune = compx.unpair(b[8:10])
+    return {"competitive": compx.unpair(b[0:2]) == 1, "competitiveTime": compx.unpair(b[2:4]),
+            "sensorMode": compx.unpair(b[4:6]), "angleTuneOn": compx.unpair(b[10:12]) == 1,
+            "angleTune": None if tune is None else (tune - 256 if tune > 127 else tune),
+            "fps20k": compx.unpair(b[12:14]) == 1, "lod": compx.unpair(head[10:12]),
+            "lodOptions": [{"value": v, "label": t} for v, t in LOD_OPTIONS],
+            "competitiveTimes": [{"value": v, "label": t} for v, t in COMPETITIVE_TIMES],
+            "sensorModes": [{"value": v, "label": t} for v, t in SENSOR_MODES],
+            "angleRange": list(ANGLE_TUNE_RANGE), "maxDebounce": MAX_DEBOUNCE}
 
 
 def read_battery(dev: dict) -> dict:
@@ -163,6 +186,10 @@ def change(dev: dict, changes: dict) -> None:
                 off = {"motionSync": compx.OFF_MOTION_SYNC, "angleSnap": compx.OFF_ANGLE_SNAP,
                        "ripple": compx.OFF_RIPPLE}[key]
                 m.write_pair(off, 1 if v else 0)
+            elif key in SENSOR_KEYS:
+                if not model.get("sensor"):
+                    raise MouseError(f"{model['name']} doesn't have this setting")
+                _set_sensor(m, key, v)
             elif key == "led":
                 if "mode" in v:
                     m.write_pair(compx.OFF_LED_MODE, int(v["mode"]))
@@ -174,6 +201,41 @@ def change(dev: dict, changes: dict) -> None:
                     m.write_pair(compx.OFF_LED_STATE, 1 if v.get("on", True) else 0)
             else:
                 raise MouseError(f"unknown setting {key}")
+
+
+SENSOR_KEYS = {"competitive", "competitiveTime", "sensorMode", "fps20k", "angleTune", "angleTuneOn", "lod",
+               "debounce"}
+
+
+def _set_sensor(m: compx.Mouse, key: str, v):
+    if key == "competitive":
+        m.write_pair(compx.OFF_PERF_STATE, 1 if v else 0)
+    elif key == "competitiveTime":
+        if v not in dict(COMPETITIVE_TIMES):
+            raise MouseError("competitive mode timer: " + ", ".join(t for _, t in COMPETITIVE_TIMES))
+        m.write_pair(compx.OFF_PERF_TIME, v)
+    elif key == "sensorMode":
+        if v not in dict(SENSOR_MODES):
+            raise MouseError("sensor mode is low power (0) or high performance (1)")
+        m.write_pair(compx.OFF_SENSOR_MODE, v)
+    elif key == "fps20k":
+        m.write_pair(compx.OFF_FPS20K, 1 if v else 0)
+    elif key == "angleTune":
+        lo, hi = ANGLE_TUNE_RANGE
+        if not lo <= int(v) <= hi:
+            raise MouseError(f"angle tuning is {lo}° to {hi}°")
+        m.write_pair(compx.OFF_ANGLE_TUNE_STATE, 1)              # as the vendor tool does
+        m.write_pair(compx.OFF_ANGLE_TUNE, int(v) % 256)
+    elif key == "angleTuneOn":
+        m.write_pair(compx.OFF_ANGLE_TUNE_STATE, 1 if v else 0)
+    elif key == "lod":
+        if v not in dict(LOD_OPTIONS):
+            raise MouseError("lift-off distance: " + ", ".join(t for _, t in LOD_OPTIONS))
+        m.write_pair(compx.OFF_LOD, v)
+    elif key == "debounce":
+        if not 0 <= int(v) <= MAX_DEBOUNCE:
+            raise MouseError(f"debounce is 0–{MAX_DEBOUNCE} ms")
+        m.write_pair(compx.OFF_DEBOUNCE, int(v))
 
 
 def restore(dev: dict, path: str):
@@ -220,6 +282,15 @@ def cli_status(a):
                                f"speed {led['speed']}/5" if led["on"] else "off"))
     for k, label in (("motionSync", "Motion sync"), ("angleSnap", "Angle snapping"), ("ripple", "Ripple control")):
         print(f"{label:<16}{'on' if s[k] else 'off'}")
+    sn = s.get("sensor")
+    if sn:
+        times, modes, lods = dict(COMPETITIVE_TIMES), dict(SENSOR_MODES), dict(LOD_OPTIONS)
+        print(f"{'Competitive':<16}{'on' if sn['competitive'] else 'off'} (timer {times.get(sn['competitiveTime'], '?')})")
+        print(f"{'Sensor mode':<16}{modes.get(sn['sensorMode'], sn['sensorMode'])}")
+        print(f"{'20K FPS scan':<16}{'on' if sn['fps20k'] else 'off'}")
+        print(f"{'Lift-off':<16}{lods.get(sn['lod'], sn['lod'])}")
+        print(f"{'Angle tuning':<16}" + (f"{sn['angleTune']:+d}°" if sn["angleTuneOn"] else "off"))
+        print(f"{'Debounce':<16}{s['debounce']} ms")
 
 
 def cli_set(a):
@@ -240,6 +311,22 @@ def cli_set(a):
         v = getattr(a, k)
         if v is not None:
             ch[{"motion_sync": "motionSync", "angle_snap": "angleSnap", "ripple": "ripple"}[k]] = v == "on"
+    for flag, key in (("competitive", "competitive"), ("fps20k", "fps20k")):
+        v = getattr(a, flag)
+        if v is not None:
+            ch[key] = v == "on"
+    if a.sensor_mode:
+        ch["sensorMode"] = {"low-power": 0, "high-performance": 1}[a.sensor_mode]
+    if a.competitive_time:
+        ch["competitiveTime"] = next((v for v, t in COMPETITIVE_TIMES if t.replace(" ", "") == a.competitive_time), None)
+        if ch["competitiveTime"] is None:
+            raise ValueError("timer: " + ", ".join(t.replace(" ", "") for _, t in COMPETITIVE_TIMES))
+    if a.lod:
+        ch["lod"] = {"0.7": 3, "1": 1, "2": 2}[a.lod]
+    if a.angle_tune is not None:
+        ch["angleTune"] = a.angle_tune
+    if a.debounce is not None:
+        ch["debounce"] = a.debounce
     if a.light:
         ch["led"] = {"on": False} if a.light == "off" else {"mode": {"steady": 1, "breathing": 2}[a.light]}
     if not ch:
@@ -273,6 +360,7 @@ class MouseModule(Module):
     icon = "mouse"
     kind = "peripheral"
     order = 62
+    bluetooth = ("mouse",)
 
     def detect(self) -> bool:
         return bool(connected())
@@ -293,6 +381,14 @@ class MouseModule(Module):
         s.add_argument("--angle-snap", choices=["on", "off"])
         s.add_argument("--ripple", choices=["on", "off"])
         s.add_argument("--light", choices=["steady", "breathing", "off"])
+        sg = s.add_argument_group("sensor (Attack Shark X11 Ultra)")
+        sg.add_argument("--competitive", choices=["on", "off"], help="competitive mode: MCU and sensor at full performance")
+        sg.add_argument("--competitive-time", metavar="T", help="competitive mode timer: 10s 30s 1min 2min 5min 10min 15min")
+        sg.add_argument("--sensor-mode", choices=["low-power", "high-performance"])
+        sg.add_argument("--fps20k", choices=["on", "off"], help="20,000 FPS sensor scan rate")
+        sg.add_argument("--lod", choices=["0.7", "1", "2"], help="lift-off distance in mm")
+        sg.add_argument("--angle-tune", type=int, metavar="DEG", help="rotate tracking by -30…30 degrees")
+        sg.add_argument("--debounce", type=int, metavar="MS", help="button debounce 0–15 ms")
         s.set_defaults(func=cli_set)
         b = ms.add_parser("backup", help="save the mouse's settings to a file")
         b.add_argument("--mouse", type=int, metavar="N")

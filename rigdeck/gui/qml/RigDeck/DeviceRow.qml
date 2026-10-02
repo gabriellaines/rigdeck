@@ -12,7 +12,8 @@ Item {
     property color tone: theme.live
     property bool future: false
     property bool showDivider: true
-    implicitHeight: 68
+    property bool compact: false
+    implicitHeight: compact ? 56 : 68
     Layout.fillWidth: true
 
     Rectangle { visible: root.showDivider; anchors.top: parent.top; width: parent.width; height: 1; color: theme.border }
@@ -44,9 +45,15 @@ Item {
                 ToolTip.text: text
                 HoverHandler { id: hov }
             }
-            Label { text: root.detail; color: theme.muted; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+            RowLayout {   // detail, plus (compact rows) the status, so the name gets the whole width
+                Layout.fillWidth: true
+                spacing: 6
+                Label { text: root.detail; color: theme.muted; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                StatusDot { visible: root.compact && !root.future && root.status !== ""; tone: root.tone }
+                Label { visible: root.compact; text: root.status; color: theme.muted; font.pixelSize: 12 }
+            }
         }
-        StatusDot { visible: !root.future && root.status !== ""; tone: root.tone }
-        Label { text: root.status; color: theme.muted; font.pixelSize: 12 }
+        StatusDot { visible: !root.compact && !root.future && root.status !== ""; tone: root.tone }
+        Label { visible: !root.compact; text: root.status; color: theme.muted; font.pixelSize: 12 }
     }
 }

@@ -11,24 +11,24 @@ PageScroll {
     readonly property bool on: headset.status === "ok"
     readonly property var caps: i.caps || []
     readonly property var offMinutes: [0, 10, 20, 30, 60, 90].filter(m => m <= (i.inactiveMax || 90))
+    readonly property int bt: bluez.devices.filter(d => d.connected && d.category === "headset").length
+    readonly property bool usb: headset.status !== "none" && headset.status !== "not-installed"
     function has(cap) { return caps.indexOf(cap) >= 0 }
     function unset(key) { return s[key] === -1 ? "Not set from RigDeck yet — the headset can't report it" : "" }
 
     Connections { target: headset; function onToast(m) { root.showToast(m) } }
-    onShownChanged: headset.setActive(shown)
-    Component.onCompleted: headset.setActive(shown)
 
     PageHeader {
-        title: page.i.name || "Headset"
+        title: page.i.name || (page.bt ? "Headphones" : "Headset")
         subtitle: ["via HeadsetControl", page.i.id ? "USB " + page.i.id : ""].filter(t => t).join(" · ")
-        status: ({ ok: "Connected", off: "Headset off", none: "Not found", loading: "Looking…",
+        status: page.bt && !page.usb ? "Bluetooth" : ({ ok: "Connected", off: "Headset off", none: "Not found", loading: "Looking…",
                    "not-installed": "Setup needed", error: "Error" })[headset.status]
-        tone: page.on ? theme.live : headset.status === "error" ? theme.error : theme.warning
+        tone: page.on || (page.bt && !page.usb) ? theme.live : headset.status === "error" ? theme.error : theme.warning
     }
 
     // ---- setup states
     Banner {
-        visible: headset.status === "not-installed"
+        visible: headset.status === "not-installed" && page.bt === 0
         text: "Headset support uses HeadsetControl, which isn't installed. On Arch/CachyOS: "
               + "sudo pacman -S headsetcontrol — other distros: see HeadsetControl's GitHub page."
         buttonText: "Open HeadsetControl page"
@@ -41,7 +41,7 @@ PageScroll {
               + "and change settings — RigDeck re-applies your settings each time it turns on."
     }
     Banner {
-        visible: headset.status === "none"
+        visible: headset.status === "none" && page.bt === 0
         text: "No supported headset found. Plug in the headset or its wireless receiver."
         buttonText: "Check again"
         onClicked: headset.refresh()
@@ -84,6 +84,7 @@ PageScroll {
     // ---- settings
     Panel {
         Layout.fillWidth: true
+        visible: page.usb
         title: "Settings"
         subtitle: "Applied right away and re-applied whenever the headset turns on"
         enabled: page.on && !headset.busy
@@ -149,4 +150,6 @@ PageScroll {
                      onToggled: headset.set("rotate_to_mute", checked ? 1 : 0) }
         }
     }
+
+    BluetoothDevices { category: "headset"; label: "Bluetooth headphones" }
 }

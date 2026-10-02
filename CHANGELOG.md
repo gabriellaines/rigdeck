@@ -8,6 +8,20 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.6.0 — 2026-10-01
+
+- New Network page with Ethernet and Wi-Fi tabs: link speed or signal, live download and upload, addresses, and nearby Wi-Fi networks
+- Bluetooth now has its own page, shown only while a Bluetooth device is connected
+- Bluetooth headphones, mice and keyboards appear on the Headset, Mouse and Keyboard pages with their battery level
+- New Resources page: live graphs of CPU, memory, each disk, each network adapter and the graphics card over the last minute, like Task Manager's Performance tab
+- The Processor page shows a load graph for every thread and the CPU's specifications: base and boost clocks, caches, virtualization, instruction sets and frequency driver
+- The Memory page lists your memory modules: maker, part number, size and rated (XMP) speed, plus a usage graph
+- The Storage page shows each drive's health: SSD wear, data written, hours powered on and bad sectors, with live read and write speeds
+- The Overview is reorganised: cooling, a live usage panel and system summary on the left, your devices on the right, with full device names
+- Metric cards in a row now all have the same height
+- RigDeck uses about a third of the CPU it used before, and nothing while its window is minimised
+- Attack Shark X11 Ultra: competitive ("Hunting Shark") mode, sensor power mode, 20K FPS scanning, lift-off distance, angle tuning and button debounce on the Mouse page
+
 ## 0.5.0 — 2026-10-01
 
 - The "Water Cooler" page is now called "Cooler"
