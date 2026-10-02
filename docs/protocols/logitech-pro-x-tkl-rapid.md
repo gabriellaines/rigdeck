@@ -116,17 +116,46 @@ switch; `[0]` off) — with only file 1 written, keys still released at ~1.5 mm;
 | 2 | `[0/1]` | Rapid Trigger master switch (verified) |
 | 3 | `[0/1]` | live key-depth stream on/off: events `fn 0 [key id][depth 0.1 mm]`, e.g. key 0x42 0→0x28→0. **Lossy** when typing fast (events dropped, keys left "half pressed"): fine for a one-key-at-a-time UI, not for tracking real typing |
 
-## Lighting (`0x8071` RGB_EFFECTS)
+## Lighting (`0x8071` RGB_EFFECTS + `0x8081` PER_KEY_LIGHTING_V2)
 
-Colour changes in G HUB were single fn 1 calls, not files:
-`fn1 [zone 0][effect 01 = static][R G B][02 …][… 01]`, e.g. `00 01 f8 2f 25 02 00 00 00 00 00 00 01`.
-Each is followed by `0x1b05` fn 1 (reply `01`).
+Whole-keyboard colour (G HUB, onboard effect): `0x8071` fn 1 `[zone 0][effect 01 = static][R G B][02 …][… 01]`,
+e.g. `00 01 f8 2f 25 02 00 00 00 00 00 00 01`.
+
+**Per-key colours** (decoded from the second G HUB capture, `~/kbd-re/ghub-session2.pcap`, verified on
+the keyboard 2026-10-02):
+
+1. Take the LEDs: `0x8071` fn 5 `01 03 07`, fn 8 `01 01 00`, fn 5 `01 03 05`, then fn 1
+   `ff 01 00×10 01` (per-key canvas). fn 5 `00 00 00` reads the state.
+2. Paint: `0x8081` fn 5 = up to 3 ranges `[first, last, R, G, B]`; fn 1 = up to 4 single zones
+   `[zone, R, G, B]`; fn 7 (16 zero bytes) shows the frame.
+3. Give them back: `0x8071` fn 5 `01 00 00` (the profile's own effect returns).
+
+Live only, like the analog settings: a profile switch brings the onboard effect back (RigDeck's
+service re-applies). **Zones are numbered by HID usage, not by the analog key ids**: zone = usage − 3
+(A = 0x01, W = 0x17, Esc = 0x26, Menu = 0x62), modifiers 0xe0–0xe7 → 0x68–0x6f; the media keys
+(found by lighting them one by one) are Light 0x96, Play 0x98, Mute 0x99, Next 0x9a, Prev 0x9b. Fn has
+no LED. G HUB fills 0x01–0x2e, 0x30–0x4f, 0x68–0x6f, 0x62, 0x96, 0x98–0x9b (0x2f, 0x61, 0x63–0x67: other
+layouts' keys, painted black).
+
+## Rapid Trigger release
+
+G HUB's Rapid Trigger file holds one value per key (`00 01 22 03` = S at 0.3 mm), used for both the
+press and the release; files 2 and 3 stayed empty. No separate release point was seen.
+
+## Writing flash (`0x8101` fn 7) — what G HUB's "onboard memory" did
+
+The second capture's "save to onboard memory" **reset all three profiles to the factory copies** (bank
+1) — twice. Sequence: fn 2 `[len]` + fn 3 chunks as for live files, then **fn 7 `[bank 0][sector][len 2 B]
+[crc32 4 B]` writes that buffer to the sector**. Order: directory (sector 0) first as an *empty*
+directory (`<crc> 00 ff`), then the profile sectors 08/09/0a and the Rapid Trigger file (0b), then the
+new directory. The directory starts with a CRC-32 of the rest of it (verified for both versions).
+RigDeck does not write flash yet.
 
 ## Still to decode
 
 - `0x8101` fn 6 values other than `0f` (G HUB's `05` = software mode?).
-- Onboard profile switching (G HUB re-committed profile files 1→2→3→1 at 171–178 s).
-- How "save lighting to onboard memory" is stored (no lighting file write was seen).
+- Onboard profile switching from software (G HUB activates `0x8101` file 1 with entry 1/2/3).
+- How to store per-key colours on the keyboard (G HUB's onboard save didn't; profiles hold effects only).
 
 ## Capture session guide (G HUB in a Windows VM, recorded on Linux)
 

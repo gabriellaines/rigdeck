@@ -66,141 +66,180 @@ PageScroll {
         Layout.fillWidth: true
         visible: page.ok
         enabled: !keyboard.busy
-        title: "Actuation and Rapid Trigger"
-        subtitle: "Each onboard profile (switch with Fn + F2 / F3 / F4) has its own. Turn on RigDeck settings to "
-                  + "change a profile's; RigDeck re-applies them whenever that profile is in use."
+        title: "Keys: actuation, Rapid Trigger and colours"
+        subtitle: "Pick an onboard profile, select keys on the keyboard (click, Ctrl+click, or drag across them) "
+                  + "and set them below. RigDeck re-applies its settings whenever that profile is in use."
+
+        property int profile: page.s.activeProfile || 1
+        property var selected: []
+        readonly property var c: keyboard.custom[profile - 1]
+        readonly property var p: keyboard.analog.find(x => x.index === profile)
+        // values per key for the map; re-read when the settings or the keyboard data change
+        property var values: ({})
+        property var li: null              // RigDeck's colours for this profile, or null
+        function reload() { values = keyboard.keyValues(profile); li = keyboard.lightingFor(profile) || null }
+        onProfileChanged: { selected = []; reload() }
+        Connections { target: keyboard; function onAnalogChanged() { ap.reload() } }
+        Component.onCompleted: reload()
+
+        function mm(t) { return (t / 10).toFixed(1) + " mm" }
+        // the selection's common value, or -1 if the keys differ
+        function common(field) {
+            const vs = selected.map(n => values[n] ? values[n][field] : undefined)
+            return vs.length && vs.every(v => v === vs[0]) ? vs[0] : -1
+        }
+
         Label {
             visible: keyboard.analogStatus === "loading" && keyboard.analog.length === 0
             text: "Reading the keyboard…"; color: theme.muted; font.pixelSize: 13
         }
 
-        // values are in 0.1 mm
-        function mm(t) { return (t / 10).toFixed(1) + " mm" }
-        function firstValue(groups) { return groups.length ? Math.round(parseFloat(groups[0].value) * 10) : 0 }
-        function asMap(list) { const m = {}; for (const e of list) m[e.name] = e.value; return m }
-        function save(n, c, patch) {
-            const s = { actuation: c.actuation, rapid: c.rapid, keys: asMap(c.keys), rapidKeys: asMap(c.rapidKeys) }
-            keyboard.setCustom(n, Object.assign(s, patch))
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Segmented {
+                model: keyboard.analog.map(x => "Profile " + x.index + " · " + x.keys
+                                                + (page.s.activeProfile === x.index ? "  (in use)" : ""))
+                currentIndex: ap.profile - 1
+                onActivated: i => ap.profile = i + 1
+            }
+            Item { Layout.fillWidth: true }
+            Label { text: "RigDeck settings"; color: theme.muted; font.pixelSize: 12 }
+            Toggle {
+                checked: !!ap.c
+                Accessible.name: "RigDeck settings for profile " + ap.profile
+                onToggled: checked ? keyboard.setKeys(ap.profile, [], {}) : keyboard.resetCustom(ap.profile)
+            }
+        }
+        Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: theme.muted
+            font.pixelSize: 12
+            text: ap.c ? "RigDeck's settings are in use on this profile. Turning them off goes back to the keyboard's own."
+                       : "Showing the keyboard's own settings for this profile. Changing a key turns RigDeck settings on."
         }
 
-        Repeater {
-            model: keyboard.analog
-            ColumnLayout {
-                id: prof
-                required property var modelData
-                readonly property int n: modelData.index
-                readonly property var c: keyboard.custom[n - 1]
+        RowLayout {
+            Layout.fillWidth: true
+            Segmented {
+                id: viewPick
+                objectName: "keyboardView"
+                model: ["Actuation", "Rapid Trigger", "Lighting"]
+                currentIndex: 0
+                onActivated: i => currentIndex = i
+            }
+            Item { Layout.fillWidth: true }
+            Button { text: "All"; onClicked: ap.selected = keyboard.layout.map(k => k.name) }
+            Button { text: "WASD"; onClicked: ap.selected = ["W", "A", "S", "D"] }
+            Button { text: "None"; enabled: ap.selected.length > 0; onClicked: ap.selected = [] }
+        }
+
+        KeyboardMap {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            layout: keyboard.layout
+            values: ap.values
+            view: ["actuation", "rapid", "lighting"][viewPick.currentIndex]
+            selected: ap.selected
+            onPicked: names => ap.selected = names
+        }
+        Label {
+            text: ["Numbers: actuation point in mm (2.0 is the default; orange = earlier, blue = deeper).",
+                   "Numbers: Rapid Trigger sensitivity in mm (how far a key moves up to release, or down to press "
+                   + "again); blank = off.",
+                   ap.li ? "Colours RigDeck shows on this profile." : "The keyboard's own lighting is in use; "
+                   + "colour a key to switch to RigDeck's colours."][viewPick.currentIndex]
+            wrapMode: Text.WordWrap; Layout.fillWidth: true
+            color: theme.muted; font.pixelSize: 12
+        }
+
+        // ---- editor for the selected keys
+        ColumnLayout {
+            visible: viewPick.currentIndex < 2
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            spacing: 6
+            Label {
+                text: ap.selected.length === 0 ? "Select keys to change them."
+                      : ap.selected.length > 8 ? ap.selected.length + " keys selected"
+                      : "Selected: " + ap.selected.join(" ")
+                color: theme.text; font.pixelSize: 13; font.bold: ap.selected.length > 0
+            }
+            SettingRow {
+                enabled: ap.selected.length > 0
+                title: "Actuation point"
+                description: "How far the key goes down before it counts as pressed"
+                Slider { id: act; Layout.preferredWidth: 220; from: 1; to: 40; stepSize: 1
+                         value: ap.common("act") > 0 ? ap.common("act") : 20
+                         Accessible.name: "Actuation point of the selected keys"
+                         onPressedChanged: if (!pressed) keyboard.setKeys(ap.profile, ap.selected, { act: Math.round(value) }) }
+                Label { text: ap.common("act") === -1 && !act.pressed ? "mixed" : ap.mm(act.value)
+                        color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
+            }
+            SettingRow {
+                enabled: ap.selected.length > 0
+                title: "Rapid Trigger"
+                description: "The key resets as soon as it starts coming up and presses again as soon as it goes down, "
+                             + "instead of at the fixed actuation point"
+                Toggle { checked: ap.common("rapid") > 0
+                         Accessible.name: "Rapid Trigger for the selected keys"
+                         onToggled: keyboard.setKeys(ap.profile, ap.selected, { rapid: checked ? Math.round(rs.value) : 0 }) }
+            }
+            SettingRow {
+                enabled: ap.selected.length > 0 && ap.common("rapid") !== 0
+                title: "Rapid Trigger sensitivity"
+                description: "How far the key has to move to reset or press again (smaller = more sensitive)"
+                Slider { id: rs; Layout.preferredWidth: 220; from: 1; to: 20; stepSize: 1
+                         value: ap.common("rapid") > 0 ? ap.common("rapid") : 5
+                         Accessible.name: "Rapid Trigger sensitivity of the selected keys"
+                         onPressedChanged: if (!pressed) keyboard.setKeys(ap.profile, ap.selected, { rapid: Math.round(value) }) }
+                Label { text: ap.common("rapid") === -1 && !rs.pressed ? "mixed" : ap.mm(rs.value)
+                        color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
+            }
+        }
+
+        // ---- colours
+        ColumnLayout {
+            visible: viewPick.currentIndex === 2
+            Layout.fillWidth: true
+            Layout.topMargin: 6
+            spacing: 8
+            SettingRow {
+                title: "RigDeck colours"
+                description: "Off = the keyboard's own lighting effect for this profile"
+                Toggle { checked: !!ap.li; Accessible.name: "RigDeck colours for profile " + ap.profile
+                         onToggled: checked ? keyboard.setBaseColor(ap.profile, "ffffff") : keyboard.resetLighting(ap.profile) }
+            }
+            Label {
+                text: ap.selected.length === 0 ? "Select keys to colour them."
+                      : ap.selected.length > 8 ? "Colour for the " + ap.selected.length + " selected keys"
+                      : "Colour for " + ap.selected.join(" ")
+                color: theme.text; font.pixelSize: 13; font.bold: ap.selected.length > 0
+            }
+            RowLayout {
+                enabled: ap.selected.length > 0
                 Layout.fillWidth: true
-                Layout.topMargin: n > 1 ? 10 : 0
-                spacing: 6
-
-                RowLayout {
+                ColorSwatches {
                     Layout.fillWidth: true
-                    spacing: 8
-                    Label { text: "Profile " + prof.n + "  ·  " + prof.modelData.keys
-                                  + (prof.modelData.name ? "  ·  " + prof.modelData.name : "")
-                            color: theme.text; font.pixelSize: 14; font.bold: true }
-                    Chip { visible: page.s.activeProfile === prof.n; label: "In use" }
-                    Item { Layout.fillWidth: true }
-                    Label { text: "RigDeck settings"; color: theme.muted; font.pixelSize: 12 }
-                    Toggle {
-                        checked: !!prof.c
-                        Accessible.name: "RigDeck settings for profile " + prof.n
-                        onToggled: {
-                            if (!checked) { keyboard.resetCustom(prof.n); return }
-                            const a = ap.firstValue(prof.modelData.actuation) || 20
-                            const r = prof.modelData.rapidTrigger.length === 1 && prof.modelData.rapidTrigger[0].all
-                                      ? ap.firstValue(prof.modelData.rapidTrigger) : 0
-                            keyboard.setCustom(prof.n, { actuation: a, rapid: r, keys: {}, rapidKeys: {} })
-                        }
-                    }
+                    current: ap.selected.length === 1 && ap.values[ap.selected[0]] ? (ap.values[ap.selected[0]].color || "") : ""
+                    colors: ["ff0000", "ff8000", "ffd000", "00ff40", "00c8ff", "0040ff", "a000ff", "ffffff", "000000"]
+                    onPicked: c => keyboard.setColors(ap.profile, ap.selected, c)
                 }
-
-                // the keyboard's own settings for this profile
-                Repeater {
-                    model: [{ label: "Actuation point", groups: prof.modelData.actuation },
-                            { label: "Rapid Trigger", groups: prof.modelData.rapidTrigger }]
-                    KeyValue {
-                        required property var modelData
-                        visible: !prof.c
-                        key: modelData.label
-                        value: modelData.groups.length === 0 ? "Off"
-                               : modelData.groups.map(g => g.value + (g.all ? " (all keys)" : " — " + g.keys.join(" "))).join("\n")
-                    }
-                }
-
-                // RigDeck's settings
-                SettingRow {
-                    visible: !!prof.c
-                    title: "Actuation point"
-                    description: "How far a key goes down before it counts as pressed (every key, unless set below)"
-                    Slider { id: act; Layout.preferredWidth: 220; from: 1; to: 40; stepSize: 1
-                             value: prof.c ? prof.c.actuation : 20
-                             Accessible.name: "Actuation point, profile " + prof.n
-                             onPressedChanged: if (!pressed) ap.save(prof.n, prof.c, { actuation: Math.round(value) }) }
-                    Label { text: ap.mm(act.value); color: theme.text; font.pixelSize: 13
-                            Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-                }
-                SettingRow {
-                    visible: !!prof.c
-                    title: "Rapid Trigger"
-                    description: "A key resets as soon as it starts coming up, and presses again as soon as it goes down"
-                    Toggle { checked: !!prof.c && prof.c.rapid > 0
-                             Accessible.name: "Rapid Trigger, profile " + prof.n
-                             onToggled: ap.save(prof.n, prof.c, checked ? { rapid: 5 } : { rapid: 0, rapidKeys: {} }) }
-                }
-                SettingRow {
-                    visible: !!prof.c && prof.c.rapid > 0
-                    title: "Rapid Trigger sensitivity"
-                    description: "How far a key has to move to reset or press again (smaller = more sensitive)"
-                    Slider { id: rs; Layout.preferredWidth: 220; from: 1; to: 20; stepSize: 1
-                             value: prof.c ? Math.max(1, prof.c.rapid) : 5
-                             Accessible.name: "Rapid Trigger sensitivity, profile " + prof.n
-                             onPressedChanged: if (!pressed) ap.save(prof.n, prof.c, { rapid: Math.round(value) }) }
-                    Label { text: ap.mm(rs.value); color: theme.text; font.pixelSize: 13
-                            Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-                }
-
-                // per-key actuation
-                Repeater {
-                    model: prof.c ? prof.c.keys : []
-                    SettingRow {
-                        id: kr
-                        required property var modelData
-                        title: modelData.name
-                        description: "Its own actuation point"
-                        Slider { id: ks; Layout.preferredWidth: 220; from: 1; to: 40; stepSize: 1; value: kr.modelData.value
-                                 Accessible.name: "Actuation point of " + kr.modelData.name
-                                 onPressedChanged: if (!pressed) {
-                                     const m = ap.asMap(prof.c.keys); m[kr.modelData.name] = Math.round(value)
-                                     ap.save(prof.n, prof.c, { keys: m })
-                                 } }
-                        Label { text: ap.mm(ks.value); color: theme.text; font.pixelSize: 13
-                                Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-                        Button { text: "Remove"; onClicked: {
-                            const m = ap.asMap(prof.c.keys); delete m[kr.modelData.name]
-                            ap.save(prof.n, prof.c, { keys: m })
-                        } }
-                    }
-                }
-                RowLayout {
-                    visible: !!prof.c
-                    Layout.fillWidth: true
-                    Label { text: "Give a key its own actuation point"; color: theme.muted; font.pixelSize: 12
-                            Layout.fillWidth: true }
-                    ComboBox {
-                        id: pick
-                        Layout.preferredWidth: 140
-                        model: prof.c ? keyboard.keyNames.filter(k => !prof.c.keys.some(e => e.name === k)) : []
-                        Accessible.name: "Key"
-                    }
-                    Button { text: "Add"; enabled: pick.currentText !== ""; onClicked: {
-                        const m = ap.asMap(prof.c.keys); m[pick.currentText] = prof.c.actuation
-                        ap.save(prof.n, prof.c, { keys: m })
-                    } }
+                Button { text: "Use background"; enabled: !!ap.li; onClicked: keyboard.setColors(ap.profile, ap.selected, "") }
+            }
+            SettingRow {
+                visible: !!ap.li
+                title: "Background"
+                description: "Every key without its own colour (black = off)"
+                ColorSwatches {
+                    current: ap.li ? ap.li.base : ""
+                    colors: ["ffffff", "00c8ff", "ff0000", "a000ff", "000000"]
+                    onPicked: c => keyboard.setBaseColor(ap.profile, c)
                 }
             }
         }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 6
@@ -210,7 +249,7 @@ PageScroll {
                 color: theme.muted
                 font.pixelSize: 12
                 text: "RigDeck's settings live on top of the profile: without RigDeck running (or on another PC) the "
-                      + "keyboard uses its own. Per-key Rapid Trigger: `rigdeck keyboard analog-set --rapid-key`."
+                      + "keyboard uses its own."
             }
             Button {
                 text: "Refresh"

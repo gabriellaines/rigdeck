@@ -13,9 +13,9 @@ import os
 
 from ... import config, servicectl
 from ..base import Module, RigdeckError, ServiceTask
-from . import analog, hidpp
+from . import analog, hidpp, lighting
 from .hidpp import HidppError
-from .keymap import KEYS
+from .keymap import KEYS, zone
 
 log = logging.getLogger("rigdeck.keyboard")
 POLL = 1.0               # how fast a profile switch (Fn+F2/F3/F4) gets RigDeck's settings back
@@ -63,14 +63,44 @@ def analog_state(dev: dict) -> list[dict]:
     for p in analog.read_profiles(dev["node"]):
         name = "" if p["name"].startswith("PROFILE_NAM") else p["name"]    # G HUB's placeholder
         out.append({"index": p["index"], "keys": p["keys"], "name": name, "actuation": groups(p["actuation"]),
-                    "rapidTrigger": groups(p["rapidTrigger"])})
+                    "rapidTrigger": groups(p["rapidTrigger"]),
+                    "perKey": {KEYS[k]: {"act": v, "rapid": p["rapidTrigger"].get(k, 0)}
+                               for k, v in p["actuation"].items()}})
     return out
+
+
+def from_keyboard(per_key: dict[int, dict]) -> dict:
+    """RigDeck settings equal to what a profile stores (the starting point when editing it)."""
+    from collections import Counter
+    act = Counter(v["act"] for v in per_key.values()).most_common(1)[0][0]
+    rapid_values = Counter(v["rapid"] for v in per_key.values())
+    rapid = rapid_values.most_common(1)[0][0]
+    return {"actuation": act, "rapid": rapid,
+            "keys": {k: v["act"] for k, v in per_key.items() if v["act"] != act},
+            "rapidKeys": {k: v["rapid"] for k, v in per_key.items() if v["rapid"] != rapid}}
+
+
+def edit_keys(s: dict, ids: list[int], act: int | None = None, rapid: int | None = None) -> dict:
+    """Settings with the given keys changed (act / rapid in 0.1 mm; rapid 0 = Rapid Trigger off)."""
+    s = {"actuation": s["actuation"], "rapid": s["rapid"], "keys": dict(s["keys"]), "rapidKeys": dict(s["rapidKeys"])}
+    for kid in ids:
+        if act is not None:
+            if act == s["actuation"]:
+                s["keys"].pop(kid, None)
+            else:
+                s["keys"][kid] = act
+        if rapid is not None:
+            if rapid == s["rapid"]:
+                s["rapidKeys"].pop(kid, None)
+            else:
+                s["rapidKeys"][kid] = rapid
+    return s
 
 
 # ---- RigDeck's own analog settings, per onboard profile ----------------------------------
 # [keyboard.analog.p1]  actuation = 20 (0.1 mm, every key), rapid = 5 (0 = Rapid Trigger off)
 # [keyboard.analog.p1.keys]  k1d = 10        per-key actuation
-# [keyboard.analog.p1.rapid_keys]  k1e = 3   per-key Rapid Trigger (also turns it on for that key)
+# [keyboard.analog.p1.rapid_keys]  k1e = 3   per-key Rapid Trigger (0 = off for that key)
 
 def custom(n: int, cfg: dict | None = None) -> dict | None:
     """RigDeck's settings for onboard profile n (1–3), or None to leave the keyboard's own."""
@@ -88,8 +118,8 @@ def custom(n: int, cfg: dict | None = None) -> dict | None:
 def effective(s: dict) -> tuple[int, dict[int, int], dict[int, int]]:
     """(default, per-key actuation, per-key Rapid Trigger) to send to the keyboard."""
     rapid = {kid: s["rapid"] for kid in KEYS} if s["rapid"] else {}
-    rapid.update(s["rapidKeys"])
-    return s["actuation"], dict(s["keys"]), rapid
+    rapid.update(s["rapidKeys"])                     # a key's own value; 0 = Rapid Trigger off for it
+    return s["actuation"], dict(s["keys"]), {k: v for k, v in rapid.items() if v}
 
 
 def save_custom(n: int, s: dict | None):
@@ -109,27 +139,69 @@ def save_custom(n: int, s: dict | None):
     config.save(cfg)
 
 
-def apply_custom(dev: dict, n: int, sw_id: int = hidpp.SW_ID) -> bool:
+# [keyboard.lighting.p1]  base = "202020"      every LED
+# [keyboard.lighting.p1.keys]  z17 = "ff0000"  one key, by LED zone (see keymap.zone)
+
+def custom_lighting(n: int, cfg: dict | None = None) -> dict | None:
+    """RigDeck's per-key colours for profile n ({base, keys: {key name: rrggbb}}), or None."""
+    cfg = cfg if cfg is not None else config.load()
+    t = cfg.get("keyboard", {}).get("lighting", {}).get(f"p{n}")
+    if not t or "base" not in t:
+        return None
+    by_zone = {zone(name): name for name in lighting.LIT_KEYS}
+    keys = {by_zone[int(z[1:], 16)]: str(c) for z, c in (t.get("keys") or {}).items()
+            if z.startswith("z") and int(z[1:], 16) in by_zone}
+    return {"base": str(t["base"]), "keys": keys}
+
+
+def save_lighting(n: int, s: dict | None):
+    if s is not None:
+        lighting.parse(s["base"])
+        for c in s["keys"].values():
+            lighting.parse(c)
+    cfg = config.load()
+    table = config.section(cfg, "keyboard", "lighting")
+    table.pop(f"p{n}", None)
+    if s is not None:
+        table[f"p{n}"] = {"base": s["base"].lstrip("#").lower(),
+                          "keys": {f"z{zone(k):02x}": c.lstrip("#").lower() for k, c in s["keys"].items()}}
+    config.save(cfg)
+
+
+def _put(k: hidpp.Device, n: int, analog_on, lights_on, before=(None, None)):
+    """Put profile n's settings on the keyboard; `before` = what RigDeck had applied to it."""
+    if analog_on:
+        analog.apply(k, *effective(analog_on))
+    elif before[0]:
+        analog.restore(k, n)
+    if lights_on:
+        lighting.apply(k, lights_on["base"], lights_on["keys"])
+    elif before[1]:
+        lighting.release(k)
+
+
+def apply_custom(dev: dict, n: int, sw_id: int = hidpp.SW_ID, analog_part: bool = True,
+                 lights_part: bool = True) -> bool:
     """If profile n is active, put RigDeck's settings for it (or the profile's own) on the keyboard.
     Returns whether n was the active profile."""
     with hidpp.Device(dev["node"], sw_id=sw_id) as k:
         if analog.active_profile(k) != n:
             return False
-        s = custom(n)
-        if s:
-            analog.apply(k, *effective(s))
-        else:
-            analog.restore(k, n)
+        a, li = custom(n), custom_lighting(n)
+        if analog_part:
+            _put(k, n, a, None, (True, None))
+        if lights_part:
+            _put(k, n, None, li, (None, True))
     return True
 
 
 class KeyboardTask(ServiceTask):
-    """Keeps RigDeck's analog settings on the keyboard: on plug-in, at login, after a profile switch,
-    and when they're changed (the GUI and CLI send SIGHUP)."""
+    """Keeps RigDeck's analog settings and colours on the keyboard: on plug-in, at login, after a
+    profile switch, and when they're changed (the GUI and CLI send SIGHUP)."""
 
     def __init__(self):
         self.cfg: dict = {}
-        self.applied: dict = {}          # node -> (profile, settings) last put on that keyboard
+        self.applied: dict = {}          # node -> (profile, (analog, lighting)) last put on that keyboard
 
     def reload(self, cfg: dict):
         self.cfg = cfg
@@ -137,27 +209,33 @@ class KeyboardTask(ServiceTask):
     def tick(self, now: float) -> float:
         kbs = connected()
         self.applied = {n: v for n, v in self.applied.items() if n in {d["node"] for d in kbs}}
-        wanted_any = any(custom(i, self.cfg) for i in (1, 2, 3))
+        wanted_any = any(custom(i, self.cfg) or custom_lighting(i, self.cfg) for i in (1, 2, 3))
         for dev in kbs:
-            if not wanted_any and dev["node"] not in self.applied:
+            node = dev["node"]
+            if not wanted_any and node not in self.applied:
                 continue                  # nothing of ours to keep, and nothing to undo
             try:
-                with hidpp.Device(dev["node"], sw_id=SERVICE_SW_ID) as k:
+                with hidpp.Device(node, sw_id=SERVICE_SW_ID) as k:
                     n = analog.active_profile(k)
-                    want = custom(n, self.cfg)
-                    if self.applied.get(dev["node"]) == (n, want):
+                    want = (custom(n, self.cfg), custom_lighting(n, self.cfg))
+                    prev = self.applied.get(node)
+                    if prev == (n, want):
                         continue
-                    if want:
-                        analog.apply(k, *effective(want))
-                        log.info("profile %d: applied RigDeck's analog settings", n)
-                    elif self.applied.get(dev["node"]) and self.applied[dev["node"]][0] == n \
-                            and self.applied[dev["node"]][1]:
-                        analog.restore(k, n)     # ours were removed while in use: back to the profile's own
-                        log.info("profile %d: back to the keyboard's own analog settings", n)
-                    if want or wanted_any:
-                        self.applied[dev["node"]] = (n, want)
+                    same = prev is not None and prev[0] == n
+                    before = prev[1] if same else (None, None)
+                    # a profile switch wipes everything: re-apply both; otherwise only what changed
+                    a = want[0] if not same or want[0] != before[0] else None
+                    li = want[1] if not same or want[1] != before[1] else None
+                    _put(k, n, a, li, (before[0] if a is None and want[0] is None else None,
+                                       before[1] if li is None and want[1] is None else None))
+                    if a or li or any(before):
+                        log.info("profile %d: %s", n, ", ".join(
+                            x for x, on in (("analog settings", want[0]), ("colours", want[1])) if on)
+                            or "back to the keyboard's own settings")
+                    if any(want) or wanted_any:
+                        self.applied[node] = (n, want)
                     else:
-                        self.applied.pop(dev["node"], None)
+                        self.applied.pop(node, None)
             except (HidppError, OSError) as e:
                 log.warning("keyboard: %s", e)
         return POLL
@@ -252,8 +330,11 @@ def cli_analog_set(a):
     for item in a.rapid_key or []:
         name, _, v = item.partition("=")
         kid = _key_id(name.strip())
-        if v.strip().lower() in ("", "off", "default"):
-            s["rapidKeys"].pop(kid, None)
+        v = v.strip().lower()
+        if v in ("", "default"):
+            s["rapidKeys"].pop(kid, None)          # follows the profile-wide setting
+        elif v == "off":
+            s["rapidKeys"][kid] = 0
         else:
             s["rapidKeys"][kid] = _tenths(v)
     save_custom(a.profile, s)
@@ -308,7 +389,7 @@ class KeyboardModule(Module):
         st.add_argument("--rapid", metavar="MM|off", help="Rapid Trigger sensitivity for every key, or off")
         st.add_argument("--key", action="append", metavar="KEY=MM", help="one key's actuation (KEY=default removes)")
         st.add_argument("--rapid-key", action="append", metavar="KEY=MM",
-                        help="Rapid Trigger for one key (KEY=off removes)")
+                        help="Rapid Trigger for one key (KEY=off turns it off, KEY=default follows --rapid)")
         st.set_defaults(func=cli_analog_set)
         rs = ks.add_parser("analog-reset", help="drop RigDeck's settings for a profile (keyboard's own again)")
         rs.add_argument("--profile", type=int, choices=(1, 2, 3), required=True)

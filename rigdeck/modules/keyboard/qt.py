@@ -6,9 +6,9 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from ... import servicectl
-from . import (BRIGHTNESS_PRESETS, analog, analog_state, apply_custom, connected, custom, read_state,
-               save_custom, set_brightness)
-from .keymap import KEYS
+from . import (BRIGHTNESS_PRESETS, analog, analog_state, apply_custom, connected, custom, custom_lighting,
+               edit_keys, effective, from_keyboard, read_state, save_custom, save_lighting, set_brightness)
+from .keymap import KEYS, LABELS, LAYOUT, MEDIA_LAYOUT
 
 KEY_IDS = {v: k for k, v in KEYS.items()}
 
@@ -84,6 +84,65 @@ class KeyboardBackend(QObject):
 
     analog = Property("QVariantList", lambda self: self._analog, notify=analogChanged)
     keyNames = Property("QVariantList", lambda self: list(KEYS.values()), constant=True)
+    layout = Property("QVariantList", lambda self: [
+        {"name": n, "label": LABELS.get(n, n), "x": x, "y": y + 1.1, "w": w, "analog": analog_key}
+        for layout, analog_key in ((LAYOUT, True), (MEDIA_LAYOUT, False)) for n, x, y, w in layout], constant=True)
+
+    def _per_key(self, n) -> dict[int, dict]:
+        """What profile n does per key: RigDeck's settings if on, else the keyboard's own."""
+        c = custom(n)
+        if c:
+            default, keys, rapid = effective(c)
+            return {kid: {"act": keys.get(kid, default), "rapid": rapid.get(kid, 0)} for kid in KEYS}
+        p = next((p for p in self._analog if p["index"] == n), None)
+        return {KEY_IDS[name]: v for name, v in p["perKey"].items()} if p else {}
+
+    @Slot(int, result="QVariantMap")
+    def keyValues(self, n):
+        """name -> {act, rapid, color}; color only when RigDeck's colours are on for profile n."""
+        out = {KEYS[kid]: dict(v) for kid, v in self._per_key(n).items()}
+        li = custom_lighting(n)
+        if li:
+            from .lighting import LIT_KEYS
+            for name in LIT_KEYS:
+                out.setdefault(name, {})["color"] = li["keys"].get(name, li["base"])
+        return out
+
+    @Slot(int, result="QVariant")
+    def lightingFor(self, n):
+        return custom_lighting(n)
+
+    @Slot(int, "QVariantList", str)
+    def setColors(self, n, names, color):
+        """Colour the given keys (color '' = back to the background colour)."""
+        li = custom_lighting(n) or {"base": "ffffff", "keys": {}}
+        keys = dict(li["keys"])
+        for name in names:
+            if color and color.lower() != li["base"]:
+                keys[name] = color.lower()
+            else:
+                keys.pop(name, None)
+        self._change_lights(n, {"base": li["base"], "keys": keys})
+
+    @Slot(int, str)
+    def setBaseColor(self, n, color):
+        li = custom_lighting(n) or {"base": "ffffff", "keys": {}}
+        self._change_lights(n, {"base": color.lower(), "keys": li["keys"]})
+
+    @Slot(int)
+    def resetLighting(self, n):
+        self._change_lights(n, None)
+
+    def _change_lights(self, n, s):
+        self._run_change(n, lambda: save_lighting(n, s), analog_part=False, lights_part=True, saved=s is not None)
+
+    @Slot(int, "QVariantList", "QVariantMap")
+    def setKeys(self, n, names, patch):
+        """Change the selected keys of profile n: patch {act?, rapid?} in 0.1 mm (rapid 0 = off).
+        Turns RigDeck settings on for that profile, starting from what it does now."""
+        base = custom(n) or from_keyboard(self._per_key(n))
+        ids = [KEY_IDS[x] for x in names if x in KEY_IDS]      # media keys have no analog switch
+        self._change(n, edit_keys(base, ids, act=patch.get("act"), rapid=patch.get("rapid")))
 
     @Property("QVariantList", notify=analogChanged)
     def custom(self):
@@ -110,6 +169,10 @@ class KeyboardBackend(QObject):
         self._change(n, None)
 
     def _change(self, n, settings):
+        self._run_change(n, lambda: save_custom(n, settings), analog_part=True, lights_part=False,
+                         saved=settings is not None)
+
+    def _run_change(self, n, save, analog_part, lights_part, saved):
         if self._busy or not self._dev:
             return
         self._busy = True
@@ -117,15 +180,15 @@ class KeyboardBackend(QObject):
         dev = self._dev
 
         def work():
-            save_custom(n, settings)
+            save()
             servicectl.reload()                     # the service keeps them on after profile switches
-            return apply_custom(dev, n)
+            return apply_custom(dev, n, analog_part=analog_part, lights_part=lights_part)
 
         def done(active):
             self._busy = False
             self.stateChanged.emit()
             self.analogChanged.emit()
-            if not active and settings is not None:
+            if not active and saved:
                 self.toast.emit(f"Saved. They take effect when profile {n} is active ({analog.PROFILE_KEYS[n - 1]}).")
 
         def failed(e):

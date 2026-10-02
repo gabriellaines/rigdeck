@@ -102,3 +102,29 @@ def test_one_keyboard_user_at_a_time(tmp_path, monkeypatch):
         with pytest.raises(hidpp.HidppError, match="busy"):
             hidpp.Device(str(node))
     hidpp.Device(str(node)).close()                                  # free again once closed
+
+
+def test_lighting_paint_matches_g_hub():
+    from rigdeck.modules.keyboard import lighting
+    from rigdeck.modules.keyboard.keymap import zone
+    assert (zone("A"), zone("W"), zone("Esc"), zone("Menu"), zone("LCtrl"), zone("Light")) == (1, 0x17, 0x26, 0x62, 0x68, 0x96)
+    assert zone("Fn") is None
+    k = FakeKeyboard()
+    lighting.paint(k, "00ffff", {"W": "f82f25", "Fn": "ffffff"})
+    ranges = [c[2] for c in k.calls if c[:2] == (0x8081, 5)]
+    assert ranges[0] == bytes.fromhex("012e00ffff" "304f00ffff" "686f00ffff")      # G HUB's first fill message
+    assert (0x8081, 1, bytes.fromhex("17f82f25")) in k.calls                         # Fn (no LED) skipped
+    assert k.calls[-1] == (0x8081, 7, bytes(16))
+
+
+def test_lighting_settings_round_trip(tmp_path, monkeypatch):
+    import pytest
+    from rigdeck import config
+    from rigdeck.modules import keyboard
+    monkeypatch.setattr(config, "PATH", str(tmp_path / "config.toml"))
+    keyboard.save_lighting(1, {"base": "#202040", "keys": {"W": "FF0000", "Play": "00ff00"}})
+    assert keyboard.custom_lighting(1) == {"base": "202040", "keys": {"W": "ff0000", "Play": "00ff00"}}
+    with pytest.raises(ValueError):
+        keyboard.save_lighting(1, {"base": "red", "keys": {}})
+    keyboard.save_lighting(1, None)
+    assert keyboard.custom_lighting(1) is None
