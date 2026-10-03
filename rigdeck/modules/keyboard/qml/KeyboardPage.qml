@@ -3,20 +3,25 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import RigDeck
 
+// Keyboard: like Wootility, the keyboard is the centre of the page and one editor below it acts on
+// what's selected: nothing selected = all keys, otherwise the selected keys.
 PageScroll {
     id: page
     property bool shown: true
     readonly property var s: keyboard.state
     readonly property bool ok: keyboard.status === "ok"
     readonly property int bt: bluez.devices.filter(d => d.connected && d.category === "keyboard").length
+    readonly property bool ready: ok && keyboard.analog.length > 0
 
-    // the profile being edited (starts on the one in use)
     property int profile: s.activeProfile || 1
     property var selected: []
     property var values: ({})          // key name -> {act, rapid, own, color}; 0.1 mm
     property var wide: ({})            // {act, rapid, own, custom} for the whole profile
     property var li: null              // RigDeck's colours for this profile, or null
     property var profileNames: []
+    readonly property bool lighting: tab.currentIndex === 1
+    readonly property bool all: selected.length === 0
+
     function reload() {
         values = keyboard.keyValues(profile)
         wide = keyboard.profileWide(profile)
@@ -30,10 +35,17 @@ PageScroll {
     Component.onCompleted: reload()
 
     function mm(t) { return (t / 10).toFixed(1) + " mm" }
-    function common(field) {               // the selection's shared value, or -1 when keys differ
+    // the value being edited: the profile's for all keys, else the selection's (-1 = keys differ)
+    function cur(field) {
+        if (all) return field === "act" ? (wide.act || 20) : (wide.rapid || 0)
         const vs = selected.map(n => values[n] ? values[n][field] : undefined).filter(v => v !== undefined)
         return vs.length && vs.every(v => v === vs[0]) ? vs[0] : -1
     }
+    function set(patch) {
+        if (all) keyboard.setProfileWide(profile, patch)
+        else keyboard.setKeys(profile, selected, patch)
+    }
+    readonly property bool selectionOwn: selected.some(n => values[n] && values[n].own)
 
     PageHeader {
         title: page.s.name || "Keyboard"
@@ -41,7 +53,6 @@ PageScroll {
         status: ({ ok: "Connected", none: "Not found", loading: "Looking…", error: "Error" })[keyboard.status]
         tone: page.ok ? theme.live : keyboard.status === "error" ? theme.error : theme.warning
     }
-
     Banner {
         visible: keyboard.status === "none" && page.bt === 0
         text: "No supported keyboard found. Supported: Logitech G PRO X TKL RAPID (USB)."
@@ -53,21 +64,24 @@ PageScroll {
         buttonText: "Retry"
         onClicked: keyboard.refresh()
     }
+    Label {
+        visible: page.ok && keyboard.analogStatus === "loading" && keyboard.analog.length === 0
+        text: "Reading the keyboard…"; color: theme.muted; font.pixelSize: 13
+    }
 
-    // ---- profile + tab
+    // ---- profile + what to edit
     RowLayout {
-        visible: page.ok && keyboard.analog.length > 0
+        visible: page.ready
         Layout.fillWidth: true
-        spacing: 12
-        Label { text: "Profile"; color: theme.muted; font.pixelSize: 13 }
+        spacing: 10
         Segmented {
-            model: page.profileNames             // fixed labels: chips aren't rebuilt on every update
+            model: page.profileNames
             currentIndex: page.profile - 1
             onActivated: i => page.profile = i + 1
         }
         Label {
             visible: !!page.s.activeProfile
-            text: page.s.activeProfile === page.profile ? "In use now" : "Not in use (" + page.profileNames[page.s.activeProfile - 1] + " is)"
+            text: page.s.activeProfile === page.profile ? "in use" : "not in use"
             color: page.s.activeProfile === page.profile ? theme.live : theme.muted
             font.pixelSize: 12
         }
@@ -79,139 +93,139 @@ PageScroll {
             onActivated: i => { currentIndex = i; page.selected = [] }
         }
     }
-    Label {
-        visible: page.ok && keyboard.analogStatus === "loading" && keyboard.analog.length === 0
-        text: "Reading the keyboard…"; color: theme.muted; font.pixelSize: 13
-    }
 
-    // =========================================================================== Keys
+    // ---- the keyboard
     Panel {
-        visible: page.ok && tab.currentIndex === 0 && keyboard.analog.length > 0
+        visible: page.ready
         Layout.fillWidth: true
-        title: "Every key"
-        subtitle: page.wide.custom ? "Set by RigDeck for this profile"
-                                   : "The keyboard's own settings for this profile. Change anything to make it yours."
-        SettingRow {
-            title: "Press point"
-            description: "How far a key goes down before it types. Shorter reacts faster; longer avoids accidental presses."
-            Slider { id: wAct; Layout.preferredWidth: 240; from: 1; to: 40; stepSize: 1; value: page.wide.act || 20
-                     Accessible.name: "Press point for every key"
-                     onPressedChanged: if (!pressed) keyboard.setProfileWide(page.profile, { act: Math.round(value) }) }
-            Label { text: page.mm(wAct.value); color: theme.text; font.pixelSize: 13
-                    Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-        }
-        SettingRow {
-            title: "Release"
-            description: (page.wide.rapid || 0) > 0
-                         ? "Rapid: a key lets go as soon as it starts coming up, and types again as soon as it goes back down"
-                         : "Standard: a key lets go when it comes back up past the press point"
-            Segmented {
-                model: ["Standard", "Rapid"]
-                currentIndex: (page.wide.rapid || 0) > 0 ? 1 : 0
-                onActivated: i => keyboard.setProfileWide(page.profile, { rapid: i === 1 ? Math.round(wRel.value) || 5 : 0 })
-            }
-        }
-        SettingRow {
-            visible: (page.wide.rapid || 0) > 0
-            title: "Release distance"
-            description: "How far a key has to move up to let go (and back down to type again). Smaller is quicker."
-            Slider { id: wRel; Layout.preferredWidth: 240; from: 1; to: 20; stepSize: 1
-                     value: (page.wide.rapid || 0) > 0 ? page.wide.rapid : 5
-                     Accessible.name: "Release distance for every key"
-                     onPressedChanged: if (!pressed) keyboard.setProfileWide(page.profile, { rapid: Math.round(value) }) }
-            Label { text: page.mm(wRel.value); color: theme.text; font.pixelSize: 13
-                    Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-        }
-    }
-
-    Panel {
-        visible: page.ok && tab.currentIndex === 0 && keyboard.analog.length > 0
-        Layout.fillWidth: true
-        title: "Individual keys"
-        subtitle: page.wide.own ? (page.wide.own === 1 ? "1 key has its own settings" : page.wide.own + " keys have their own settings")
-                                  + " (highlighted, with their values)"
-                                : "Select keys (click, Ctrl+click or drag) to give them their own settings"
         RowLayout {
             Layout.fillWidth: true
+            Label {
+                Layout.fillWidth: true
+                text: page.all ? "Click keys to change only those, or drag across several. Changes below apply to all keys."
+                               : page.selected.length + (page.selected.length === 1 ? " key" : " keys") + " selected"
+                color: page.all ? theme.muted : theme.text; font.pixelSize: 13; font.bold: !page.all
+                wrapMode: Text.WordWrap
+            }
             Button { text: "WASD"; onClicked: page.selected = ["W", "A", "S", "D"] }
-            Button { text: "All"; onClicked: page.selected = keyboard.layout.filter(k => k.analog).map(k => k.name) }
-            Button { text: "Clear selection"; enabled: page.selected.length > 0; onClicked: page.selected = [] }
-            Item { Layout.fillWidth: true }
-            Button { text: "Reset all keys to “Every key”"; visible: (page.wide.own || 0) > 0
-                     onClicked: keyboard.clearOwn(page.profile, []) }
+            Button { text: page.all ? "Select all" : "Clear selection"
+                     onClicked: page.selected = page.all ? keyboard.layout.filter(k => page.lighting || k.analog).map(k => k.name) : [] }
         }
         KeyboardMap {
             Layout.fillWidth: true
-            Layout.topMargin: 4
             layout: keyboard.layout
             values: page.values
-            view: "keys"
+            view: page.lighting ? "lighting" : "keys"
             wideAct: page.wide.act || 20
             wideRapid: page.wide.rapid || 0
             selected: page.selected
-            onPicked: names => page.selected = names.filter(n => keyboard.layout.some(k => k.name === n && k.analog))
+            onPicked: names => page.selected = page.lighting ? names
+                      : names.filter(n => keyboard.layout.some(k => k.name === n && k.analog))
         }
         Label {
-            text: "Highlighted keys show their own press point (bottom) and release distance (↑, top). Media keys only have lights."
-            color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap
+            visible: !page.lighting && (page.wide.own || 0) > 0
+            text: "Tinted keys have their own settings and show what differs (↑ = release distance)."
+            color: theme.muted; font.pixelSize: 12
         }
+    }
 
-        ColumnLayout {
-            visible: page.selected.length > 0
+    // ---- editor: keys
+    Panel {
+        visible: page.ready && !page.lighting
+        Layout.fillWidth: true
+        title: page.all ? "All keys" : page.selected.length > 12 ? page.selected.length + " keys"
+                                                                 : page.selected.join("  ")
+        subtitle: page.all ? ((page.wide.own || 0) > 0 ? "Except the " + page.wide.own + " tinted keys, which keep their own" : "")
+                           : page.selectionOwn ? "Own settings" : "Same as all keys"
+        actionText: page.all ? ((page.wide.own || 0) > 0 ? "Make every key the same" : "")
+                             : (page.selectionOwn ? "Same as all keys" : "")
+        onActionClicked: keyboard.clearOwn(page.profile, page.all ? [] : page.selected)
+
+        RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 6
-            spacing: 6
-            RowLayout {
+            spacing: 28
+            KeyTravel {
+                act: page.cur("act")
+                rapid: page.cur("rapid")
+                Layout.alignment: Qt.AlignTop
+            }
+            ColumnLayout {
                 Layout.fillWidth: true
-                Label {
-                    text: page.selected.length > 10 ? page.selected.length + " keys selected"
-                                                    : page.selected.join("  ")
-                    color: theme.text; font.pixelSize: 14; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight
+                Layout.alignment: Qt.AlignTop
+                spacing: 14
+                SettingRow {
+                    title: "Press point"
+                    description: "How far down a key types. Shorter is faster; longer avoids accidental presses."
+                    Slider { id: act; Layout.preferredWidth: 220; from: 1; to: 40; stepSize: 1
+                             value: page.cur("act") > 0 ? page.cur("act") : (page.wide.act || 20)
+                             Accessible.name: "Press point"
+                             onPressedChanged: if (!pressed) page.set({ act: Math.round(value) }) }
+                    Label { text: page.cur("act") === -1 && !act.pressed ? "mixed" : page.mm(act.value)
+                            color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
                 }
-                Button { text: "Use “Every key”"; onClicked: keyboard.clearOwn(page.profile, page.selected) }
-            }
-            SettingRow {
-                title: "Press point"
-                Slider { id: kAct; Layout.preferredWidth: 240; from: 1; to: 40; stepSize: 1
-                         value: page.common("act") > 0 ? page.common("act") : (page.wide.act || 20)
-                         Accessible.name: "Press point of the selected keys"
-                         onPressedChanged: if (!pressed) keyboard.setKeys(page.profile, page.selected, { act: Math.round(value) }) }
-                Label { text: page.common("act") === -1 && !kAct.pressed ? "mixed" : page.mm(kAct.value)
-                        color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
-            }
-            SettingRow {
-                title: "Release"
-                Segmented {
-                    model: ["Standard", "Rapid"]
-                    currentIndex: page.common("rapid") === -1 ? -1 : page.common("rapid") > 0 ? 1 : 0
-                    onActivated: i => keyboard.setKeys(page.profile, page.selected,
-                                                       { rapid: i === 1 ? Math.round(kRel.value) : 0 })
+                SettingRow {
+                    title: "Release"
+                    description: page.cur("rapid") > 0 ? "Rapid: lets go as soon as the key starts rising, types again as soon as it goes down"
+                               : page.cur("rapid") === 0 ? "Standard: lets go when the key rises back past the press point"
+                               : "The selected keys differ"
+                    Segmented {
+                        model: ["Standard", "Rapid"]
+                        currentIndex: page.cur("rapid") === -1 ? -1 : page.cur("rapid") > 0 ? 1 : 0
+                        onActivated: i => page.set({ rapid: i === 1 ? Math.round(rel.value) : 0 })
+                    }
                 }
-            }
-            SettingRow {
-                visible: page.common("rapid") !== 0
-                title: "Release distance"
-                Slider { id: kRel; Layout.preferredWidth: 240; from: 1; to: 20; stepSize: 1
-                         value: page.common("rapid") > 0 ? page.common("rapid") : 5
-                         Accessible.name: "Release distance of the selected keys"
-                         onPressedChanged: if (!pressed) keyboard.setKeys(page.profile, page.selected, { rapid: Math.round(value) }) }
-                Label { text: page.common("rapid") === -1 && !kRel.pressed ? "mixed" : page.mm(kRel.value)
-                        color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
+                SettingRow {
+                    visible: page.cur("rapid") !== 0
+                    title: "Release distance"
+                    description: "How far the key rises before it lets go (and goes down before it types again)"
+                    Slider { id: rel; Layout.preferredWidth: 220; from: 1; to: 20; stepSize: 1
+                             value: page.cur("rapid") > 0 ? page.cur("rapid") : 5
+                             Accessible.name: "Release distance"
+                             onPressedChanged: if (!pressed) page.set({ rapid: Math.round(value) }) }
+                    Label { text: page.cur("rapid") === -1 && !rel.pressed ? "mixed" : page.mm(rel.value)
+                            color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
+                }
             }
         }
     }
 
-    // =========================================================================== Lighting
+    // ---- editor: lighting
     Panel {
-        visible: page.ok && tab.currentIndex === 1
+        visible: page.ready && page.lighting
         Layout.fillWidth: true
-        title: "Lighting"
+        title: page.all ? "All keys" : page.selected.length > 12 ? page.selected.length + " keys" : page.selected.join("  ")
         SettingRow {
-            visible: page.s.brightness !== undefined
+            visible: page.all
+            title: "Colours"
+            description: page.li ? "Your colours, key by key" : "The effect stored in this profile on the keyboard"
+            Segmented {
+                model: ["Keyboard's effect", "My colours"]
+                currentIndex: page.li ? 1 : 0
+                onActivated: i => i === 1 ? keyboard.setBaseColor(page.profile, "ffffff") : keyboard.resetLighting(page.profile)
+            }
+        }
+        SettingRow {
+            visible: !!page.li || !page.all
+            title: page.all ? "Colour of every key" : "Colour"
+            description: page.all ? "Keys you colour separately keep their colour" : ""
+            ColorSwatches {
+                current: page.all ? (page.li ? page.li.base : "")
+                         : page.selected.length === 1 && page.values[page.selected[0]] ? (page.values[page.selected[0]].color || "") : ""
+                colors: ["ff0000", "ff8000", "ffd000", "00ff40", "00c8ff", "0040ff", "a000ff", "ffffff", "000000"]
+                onPicked: c => page.all ? keyboard.setBaseColor(page.profile, c) : keyboard.setColors(page.profile, page.selected, c)
+            }
+        }
+        RowLayout {
+            visible: !page.all && !!page.li
+            Item { Layout.fillWidth: true }
+            Button { text: "Same as the other keys"; onClicked: keyboard.setColors(page.profile, page.selected, "") }
+        }
+        SettingRow {
+            visible: page.all && page.s.brightness !== undefined
             title: "Brightness"
             Slider {
                 id: bri
-                Layout.preferredWidth: 240
+                Layout.preferredWidth: 220
                 from: page.s.brightnessMin || 0; to: page.s.brightnessMax || 100; stepSize: 1
                 value: page.s.brightness || 0
                 Accessible.name: "Keyboard brightness"
@@ -220,77 +234,24 @@ PageScroll {
             Label { text: Math.round(bri.value) === 0 ? "Off" : Math.round(bri.value) + "%"
                     color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 56; horizontalAlignment: Text.AlignRight }
         }
-        SettingRow {
-            title: "Colours"
-            description: page.li ? "Your colours, per key" : "The effect stored in this profile on the keyboard"
-            Segmented {
-                model: ["Keyboard's effect", "My colours"]
-                currentIndex: page.li ? 1 : 0
-                onActivated: i => i === 1 ? keyboard.setBaseColor(page.profile, "ffffff") : keyboard.resetLighting(page.profile)
-            }
-        }
-    }
-    Panel {
-        visible: page.ok && tab.currentIndex === 1 && !!page.li
-        Layout.fillWidth: true
-        title: "Key colours"
-        subtitle: "Select keys (click, Ctrl+click or drag), then pick a colour"
-        RowLayout {
-            Layout.fillWidth: true
-            Button { text: "All"; onClicked: page.selected = keyboard.layout.map(k => k.name) }
-            Button { text: "WASD"; onClicked: page.selected = ["W", "A", "S", "D"] }
-            Button { text: "Clear selection"; enabled: page.selected.length > 0; onClicked: page.selected = [] }
-        }
-        KeyboardMap {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-            layout: keyboard.layout
-            values: page.values
-            view: "lighting"
-            selected: page.selected
-            onPicked: names => page.selected = names
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            enabled: page.selected.length > 0
-            Label { text: page.selected.length ? "Selected keys" : "Select keys first"; color: theme.text; font.pixelSize: 13
-                    Layout.preferredWidth: 110 }
-            ColorSwatches {
-                Layout.fillWidth: true
-                current: page.selected.length === 1 && page.values[page.selected[0]] ? (page.values[page.selected[0]].color || "") : ""
-                colors: ["ff0000", "ff8000", "ffd000", "00ff40", "00c8ff", "0040ff", "a000ff", "ffffff", "000000"]
-                onPicked: c => keyboard.setColors(page.profile, page.selected, c)
-            }
-            Button { text: "Same as the rest"; onClicked: keyboard.setColors(page.profile, page.selected, "") }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            Label { text: "Every other key"; color: theme.text; font.pixelSize: 13; Layout.preferredWidth: 110 }
-            ColorSwatches {
-                Layout.fillWidth: true
-                current: page.li ? page.li.base : ""
-                colors: ["ffffff", "00c8ff", "ff0000", "a000ff", "000000"]
-                onPicked: c => keyboard.setBaseColor(page.profile, c)
-            }
-        }
     }
 
-    // ---- footer: going back, and what "RigDeck settings" means
+    // ---- footer
     RowLayout {
-        visible: page.ok && keyboard.analog.length > 0
+        visible: page.ready
         Layout.fillWidth: true
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             color: theme.muted
             font.pixelSize: 12
-            text: "RigDeck applies these while it's running, and again after you switch profiles (Fn + F2 / F3 / F4) "
-                  + "or plug the keyboard in. Without RigDeck the keyboard uses its own."
+            text: "RigDeck applies your changes while it runs and after profile switches, sleep or replugging. "
+                  + "Without RigDeck the keyboard uses its own settings."
         }
         Button {
-            visible: tab.currentIndex === 0 && !!page.wide.custom
-            text: "Back to the keyboard's own"
-            onClicked: keyboard.resetCustom(page.profile)
+            visible: !page.lighting && !!page.wide.custom
+            text: "Use the keyboard's own"
+            onClicked: { page.selected = []; keyboard.resetCustom(page.profile) }
         }
     }
 

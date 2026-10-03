@@ -21,6 +21,7 @@ Card {
         anchors.fill: parent
         spacing: 0
         RowLayout {
+            visible: root.title !== "" || root.actionText !== "" || extra.children.length > 0   // untitled: body only
             Layout.fillWidth: true
             Layout.margins: 20
             Layout.bottomMargin: 14
@@ -53,7 +54,8 @@ Card {
                 onClicked: root.actionClicked()
             }
         }
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
+        Rectangle { visible: root.title !== "" || root.actionText !== "" || extra.children.length > 0
+                    Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
         ColumnLayout {
             id: body
             Layout.fillWidth: true
