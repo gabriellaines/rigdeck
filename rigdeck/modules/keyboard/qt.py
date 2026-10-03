@@ -26,6 +26,7 @@ class KeyboardBackend(QObject):
         self._status = "loading"   # loading | ok | none | error
         self._error = ""
         self._busy = False
+        self._jobs: dict = {}            # waiting keyboard jobs, oldest first
         self._reading = False
         self._analog: list = []
         self._analog_status = "idle"   # idle | loading | ok | error
@@ -206,30 +207,53 @@ class KeyboardBackend(QObject):
                          saved=settings is not None)
 
     def _run_change(self, n, save, analog_part, lights_part, saved):
-        if self._busy or not self._dev:
+        """Save now (so the next change builds on it); put it on the keyboard in the background."""
+        if not self._dev:
             return
-        self._busy = True
-        self.stateChanged.emit()
+        save()
+        self.analogChanged.emit()                  # the page shows the new values straight away
         dev = self._dev
 
         def work():
-            save()
             servicectl.reload()                     # the service keeps them on after profile switches
+            # reads the config when it runs: a burst of changes ends up as one write of the latest
             return apply_custom(dev, n, analog_part=analog_part, lights_part=lights_part)
 
         def done(active):
-            self._busy = False
-            self.stateChanged.emit()
-            self.analogChanged.emit()
             if not active and saved:
                 self.toast.emit(f"Saved. They take effect when profile {n} is active ({analog.PROFILE_KEYS[n - 1]}).")
+        self._enqueue(("profile", n, analog_part, lights_part), work, done)
+
+    # ---- one keyboard job at a time; a newer job of the same kind replaces a waiting one
+
+    def _enqueue(self, key, work, done=None):
+        self._jobs[key] = (work, done)
+        if not self._busy:
+            self._next()
+
+    def _next(self):
+        if not self._jobs:
+            if self._busy:
+                self._busy = False
+                self.stateChanged.emit()
+            return
+        key = next(iter(self._jobs))
+        work, done = self._jobs.pop(key)
+        self._busy = True
+
+        def ok(r):
+            if done:
+                done(r)
+            self._next()
 
         def failed(e):
-            self._busy = False
             self.toast.emit(f"Could not change the keyboard: {e}")
+            self._jobs.clear()
+            self._busy = False
             self.stateChanged.emit()
             self.analogChanged.emit()
-        run_async(work, done, failed)
+            self.refresh()
+        run_async(work, ok, failed)
     analogStatus = Property(str, lambda self: self._analog_status, notify=analogChanged)
 
     state = Property("QVariantMap", lambda self: self._state, notify=stateChanged)
@@ -248,20 +272,9 @@ class KeyboardBackend(QObject):
 
     @Slot(int)
     def setBrightness(self, value):
-        if self._busy or not self._dev:
+        if not self._dev:
             return
-        self._busy = True
+        self._state = {**self._state, "brightness": value}     # show it right away
         self.stateChanged.emit()
         dev = self._dev
-
-        def done(_):
-            self._busy = False
-            self._state = {**self._state, "brightness": value}
-            self.stateChanged.emit()
-
-        def failed(e):
-            self._busy = False
-            self.toast.emit(f"Could not change the keyboard: {e}")
-            self.stateChanged.emit()
-            self.refresh()
-        run_async(lambda: set_brightness(dev, value), done, failed)
+        self._enqueue(("brightness",), lambda: set_brightness(dev, value))

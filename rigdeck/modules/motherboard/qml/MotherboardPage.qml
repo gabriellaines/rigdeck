@@ -5,6 +5,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: motherboardBusy; busy: motherboard.busy }
     property bool shown: true
     readonly property var s: motherboard.state
     readonly property var b: s.board || ({})
@@ -79,7 +80,7 @@ PageScroll {
             id: zone
             readonly property var zn: modelData
             Layout.fillWidth: true
-            enabled: !motherboard.busy
+            enabled: !motherboardBusy.shown
             title: "Lighting · " + zn.label
             subtitle: (zn.mode ? "Kept after restarts" : "The controller can't report its current effect; pick one to take over")
                       + " · Aura firmware " + page.light.firmware

@@ -8,8 +8,10 @@ profile becomes active.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 
 from ... import config, servicectl
 from ..base import Module, RigdeckError, ServiceTask
@@ -20,6 +22,27 @@ from .keymap import KEYS, zone
 log = logging.getLogger("rigdeck.keyboard")
 POLL = 1.0               # how fast a profile switch (Fn+F2/F3/F4) gets RigDeck's settings back
 SERVICE_SW_ID = 0x0B
+IDLE_POLL = 5.0          # without RigDeck settings: just keep track of the profile in use
+# The profile you last used: the keyboard falls back to its startup profile when it loses power
+# (sleep, replug, reboot), so the service switches back to this one when it returns.
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
+                     "rigdeck", "keyboard.json")
+
+
+def remembered_profile() -> int | None:
+    try:
+        with open(STATE) as f:
+            n = json.load(f).get("profile")
+        return n if n in (1, 2, 3) else None
+    except (OSError, ValueError):
+        return None
+
+
+def remember_profile(n: int):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE + ".tmp", "w") as f:
+        json.dump({"profile": n}, f)
+    os.replace(STATE + ".tmp", STATE)
 
 MODELS = {0xC35B: "Logitech G PRO X TKL RAPID"}
 # Brightness levels the keyboard's own Fn key cycles through (halving from 100).
@@ -203,43 +226,70 @@ class KeyboardTask(ServiceTask):
     def __init__(self):
         self.cfg: dict = {}
         self.applied: dict = {}          # node -> (profile, (analog, lighting)) last put on that keyboard
+        self.seen: set[str] = set()      # keyboards present since the last tick
+        self._clock: tuple[float, float] | None = None
 
     def reload(self, cfg: dict):
         self.cfg = cfg
 
+    def _slept(self, now: float) -> bool:
+        """CLOCK_BOOTTIME counts suspended time, the monotonic clock doesn't: a gap means we slept."""
+        boot = time.clock_gettime(time.CLOCK_BOOTTIME)
+        slept = self._clock is not None and (boot - self._clock[0]) - (now - self._clock[1]) > 3
+        self._clock = (boot, now)
+        return slept
+
     def tick(self, now: float) -> float:
+        if self._slept(now):
+            self.seen.clear()            # the keyboard lost power: treat it as just plugged in
+            self.applied.clear()
         kbs = connected()
-        self.applied = {n: v for n, v in self.applied.items() if n in {d["node"] for d in kbs}}
+        nodes = {d["node"] for d in kbs}
+        self.applied = {n: v for n, v in self.applied.items() if n in nodes}
+        self.seen &= nodes
         wanted_any = any(custom(i, self.cfg) or custom_lighting(i, self.cfg) for i in (1, 2, 3))
         for dev in kbs:
             node = dev["node"]
-            if not wanted_any and node not in self.applied:
-                continue                  # nothing of ours to keep, and nothing to undo
+            back = node not in self.seen
             try:
                 with hidpp.Device(node, sw_id=SERVICE_SW_ID) as k:
                     n = analog.active_profile(k)
-                    want = (custom(n, self.cfg), custom_lighting(n, self.cfg))
-                    prev = self.applied.get(node)
-                    if prev == (n, want):
-                        continue
-                    same = prev is not None and prev[0] == n
-                    before = prev[1] if same else (None, None)
-                    # a profile switch wipes everything: re-apply both; otherwise only what changed
-                    a = want[0] if not same or want[0] != before[0] else None
-                    li = want[1] if not same or want[1] != before[1] else None
-                    _put(k, n, a, li, (before[0] if a is None and want[0] is None else None,
-                                       before[1] if li is None and want[1] is None else None))
-                    if a or li or any(before):
-                        log.info("profile %d: %s", n, ", ".join(
-                            x for x, on in (("analog settings", want[0]), ("colours", want[1])) if on)
-                            or "back to the keyboard's own settings")
-                    if any(want) or wanted_any:
-                        self.applied[node] = (n, want)
-                    else:
-                        self.applied.pop(node, None)
+                    last = remembered_profile()
+                    if back and last and n != last:
+                        analog.switch_profile(k, last)
+                        log.info("keyboard back: switched to profile %d (was %d)", last, n)
+                        n = last
+                    elif n != last:
+                        remember_profile(n)
+                    self.seen.add(node)
+                    self._keep(k, node, n, wanted_any)
             except (HidppError, OSError) as e:
                 log.warning("keyboard: %s", e)
-        return POLL
+        return POLL if wanted_any else IDLE_POLL
+
+    def _keep(self, k, node: str, n: int, wanted_any: bool):
+        """Put RigDeck's settings for profile n on the keyboard if they aren't already."""
+        want = (custom(n, self.cfg), custom_lighting(n, self.cfg))
+        prev = self.applied.get(node)
+        if prev == (n, want) or (prev is None and not any(want)):
+            if prev is None and wanted_any:
+                self.applied[node] = (n, want)
+            return
+        same = prev is not None and prev[0] == n
+        before = prev[1] if same else (None, None)
+        # a profile switch wipes everything: re-apply both; otherwise only what changed
+        a = want[0] if not same or want[0] != before[0] else None
+        li = want[1] if not same or want[1] != before[1] else None
+        _put(k, n, a, li, (before[0] if a is None and want[0] is None else None,
+                           before[1] if li is None and want[1] is None else None))
+        if a or li or any(before):
+            log.info("profile %d: %s", n, ", ".join(
+                x for x, on in (("analog settings", want[0]), ("colours", want[1])) if on)
+                or "back to the keyboard's own settings")
+        if any(want) or wanted_any:
+            self.applied[node] = (n, want)
+        else:
+            self.applied.pop(node, None)
 
 
 # ---- CLI ------------------------------------------------------------------------------

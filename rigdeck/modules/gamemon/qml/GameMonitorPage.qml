@@ -6,6 +6,7 @@ import RigDeck
 // Record telemetry while playing (like CapFrameX), then review it.
 PageScroll {
     id: page
+    BusyGate { id: gamemonBusy; busy: gamemon.busy }
     property bool shown: true
     readonly property var lv: gamemon.live
     readonly property var last: lv.last || ({})
@@ -54,7 +55,7 @@ PageScroll {
                 text: gamemon.recording ? "Stop and save" : "Start recording"
                 icon.source: "image://icons/" + (gamemon.recording ? "circle-stop" : "circle-play") + "/" + theme.onAccent.toString().slice(-6)
                 highlighted: true
-                enabled: !gamemon.busy
+                enabled: !gamemonBusy.shown
                 onClicked: gamemon.recording ? gamemon.stop() : gamemon.start(label.text)
             }
         }

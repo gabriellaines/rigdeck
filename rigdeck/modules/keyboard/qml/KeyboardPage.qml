@@ -16,10 +16,13 @@ PageScroll {
     property var values: ({})          // key name -> {act, rapid, own, color}; 0.1 mm
     property var wide: ({})            // {act, rapid, own, custom} for the whole profile
     property var li: null              // RigDeck's colours for this profile, or null
+    property var profileNames: []
     function reload() {
         values = keyboard.keyValues(profile)
         wide = keyboard.profileWide(profile)
         li = keyboard.lightingFor(profile) || null
+        const names = keyboard.analog.map(x => x.keys)
+        if (JSON.stringify(names) !== JSON.stringify(profileNames)) profileNames = names
     }
     onProfileChanged: { selected = []; reload() }
     Connections { target: keyboard; function onAnalogChanged() { page.reload() }
@@ -58,9 +61,15 @@ PageScroll {
         spacing: 12
         Label { text: "Profile"; color: theme.muted; font.pixelSize: 13 }
         Segmented {
-            model: keyboard.analog.map(x => x.keys + (page.s.activeProfile === x.index ? "  •  in use" : ""))
+            model: page.profileNames             // fixed labels: chips aren't rebuilt on every update
             currentIndex: page.profile - 1
             onActivated: i => page.profile = i + 1
+        }
+        Label {
+            visible: !!page.s.activeProfile
+            text: page.s.activeProfile === page.profile ? "In use now" : "Not in use (" + page.profileNames[page.s.activeProfile - 1] + " is)"
+            color: page.s.activeProfile === page.profile ? theme.live : theme.muted
+            font.pixelSize: 12
         }
         Item { Layout.fillWidth: true }
         Segmented {
@@ -78,7 +87,6 @@ PageScroll {
     // =========================================================================== Keys
     Panel {
         visible: page.ok && tab.currentIndex === 0 && keyboard.analog.length > 0
-        enabled: !keyboard.busy
         Layout.fillWidth: true
         title: "Every key"
         subtitle: page.wide.custom ? "Set by RigDeck for this profile"
@@ -118,7 +126,6 @@ PageScroll {
 
     Panel {
         visible: page.ok && tab.currentIndex === 0 && keyboard.analog.length > 0
-        enabled: !keyboard.busy
         Layout.fillWidth: true
         title: "Individual keys"
         subtitle: page.wide.own ? (page.wide.own === 1 ? "1 key has its own settings" : page.wide.own + " keys have their own settings")
@@ -197,7 +204,6 @@ PageScroll {
     // =========================================================================== Lighting
     Panel {
         visible: page.ok && tab.currentIndex === 1
-        enabled: !keyboard.busy
         Layout.fillWidth: true
         title: "Lighting"
         SettingRow {
@@ -226,7 +232,6 @@ PageScroll {
     }
     Panel {
         visible: page.ok && tab.currentIndex === 1 && !!page.li
-        enabled: !keyboard.busy
         Layout.fillWidth: true
         title: "Key colours"
         subtitle: "Select keys (click, Ctrl+click or drag), then pick a colour"

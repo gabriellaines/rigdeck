@@ -160,6 +160,16 @@ def restore(k: hidpp.Device, profile_index: int):
                   + e["length"].to_bytes(2, "big") + e["crc"].to_bytes(4, "big"))
 
 
+def switch_profile(k: hidpp.Device, n: int):
+    """Make onboard profile n (1–3) the active one, as Fn+F2/F3/F4 would: 0x8101 file 1 is pointed at
+    the profile's directory entry (fn 9 "activate"; nothing is written to flash)."""
+    d = Reader(k).directory(0)
+    entries = sorted(i for i, e in d.items() if e["feature"] == PROFILE_MGMT)
+    e = d[entries[n - 1]]
+    k.feature(PROFILE_MGMT, 9, PROFILE_MGMT.to_bytes(2, "big") + bytes([1, 0, entries[n - 1]])
+              + e["length"].to_bytes(2, "big") + e["crc"].to_bytes(4, "big"))
+
+
 def active_profile(k: hidpp.Device) -> int:
     """1–3: the onboard profile in use (0x8101 fn 6 `0f` → `03 00 <profile>`; switching wipes live settings)."""
     return k.feature(PROFILE_MGMT, 6, b"\x0f")[2]

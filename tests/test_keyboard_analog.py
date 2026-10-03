@@ -139,3 +139,38 @@ def test_colouring_every_key_skips_fn(tmp_path, monkeypatch):
     keyboard.save_lighting(1, {"base": "000000", "keys": every})
     saved = keyboard.custom_lighting(1)["keys"]
     assert "Fn" not in saved and len(saved) == len(every) - 1
+
+
+def test_service_restores_profile_after_sleep(tmp_path, monkeypatch):
+    import time as _time
+    from rigdeck import config
+    from rigdeck.modules import keyboard
+    monkeypatch.setattr(config, "PATH", str(tmp_path / "config.toml"))
+    monkeypatch.setattr(keyboard, "STATE", str(tmp_path / "state" / "keyboard.json"))
+    kb = {"profile": 2, "switches": []}
+
+    class Dev:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *e): pass
+    monkeypatch.setattr(keyboard.hidpp, "Device", Dev)
+    monkeypatch.setattr(keyboard, "connected", lambda: [{"node": "/dev/hidraw5", "pid": 0xC35B, "model": "x"}])
+    monkeypatch.setattr(keyboard.analog, "active_profile", lambda k: kb["profile"])
+
+    def switch(k, n):
+        kb["switches"].append(n)
+        kb["profile"] = n
+    monkeypatch.setattr(keyboard.analog, "switch_profile", switch)
+    boot = [1000.0]
+    monkeypatch.setattr(_time, "clock_gettime", lambda clk: boot[0])
+
+    task = keyboard.KeyboardTask()
+    task.tick(10.0); boot[0] += 1
+    assert keyboard.remembered_profile() == 2 and kb["switches"] == []    # first sight: just remember
+    kb["profile"] = 3                                                      # Fn+F4 by the user
+    task.tick(11.0); boot[0] += 1
+    assert keyboard.remembered_profile() == 3 and kb["switches"] == []
+    kb["profile"] = 1                                                      # slept 60 s, woke on profile 1
+    boot[0] += 60
+    task.tick(12.0)
+    assert kb["switches"] == [3] and keyboard.remembered_profile() == 3

@@ -7,6 +7,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: coolerBusy; busy: cooler.busy !== "" }
     property bool shown: true
     readonly property bool up: cooler.connected
     readonly property bool serviceUp: appState.serviceState === "active"
@@ -257,7 +258,7 @@ PageScroll {
                     headerExtra: [
                         Button {
                             text: "Upload…"
-                            enabled: cooler.busy === ""
+                            enabled: !coolerBusy.shown
                             icon.source: "image://icons/upload/" + theme.text.toString().slice(-6)
                             onClicked: fileDialog.open()
                         }
@@ -269,7 +270,7 @@ PageScroll {
                         RowLayout {
                             Layout.fillWidth: true
                             Segmented { model: ["One animation", "Carousel"]; currentIndex: cooler.single ? 0 : 1
-                                        enabled: cooler.busy === ""; onActivated: (i) => cooler.setSingle(i === 0) }
+                                        enabled: !coolerBusy.shown; onActivated: (i) => cooler.setSingle(i === 0) }
                             Item { Layout.fillWidth: true }
                             Label { visible: !cooler.single; text: "Seconds each"; color: theme.muted; font.pixelSize: 13 }
                             SpinBox { visible: !cooler.single; from: 5; to: 60; stepSize: 5; value: cooler.interval
@@ -294,7 +295,7 @@ PageScroll {
                         Item {
                             Layout.fillWidth: true
                             implicitHeight: 56
-                            enabled: cooler.busy === ""
+                            enabled: !coolerBusy.shown
                             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: theme.border }
                             RowLayout {
                                 anchors.fill: parent

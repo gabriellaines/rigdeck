@@ -5,6 +5,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: mouseBusy; busy: mouse.busy }
     property bool shown: true
     readonly property var s: mouse.state
     readonly property bool ok: mouse.status === "ok"
@@ -99,7 +100,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Sensitivity (DPI)"
         subtitle: "The DPI button on the mouse steps through these; its light shows which one is active"
         SettingRow {
@@ -149,7 +150,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Performance"
         subtitle: "Saved on the mouse right away"
         SettingRow {
@@ -188,7 +189,7 @@ PageScroll {
         Layout.fillWidth: true
         readonly property var sn: page.s.sensor || null
         visible: page.known && sn !== null
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Sensor"
         subtitle: "Saved on the mouse right away · names and options as in the maker's own software"
         SettingRow {
@@ -273,7 +274,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Light"
         readonly property var led: page.s.led || ({})
         SettingRow {
