@@ -60,7 +60,7 @@ PageScroll {
             Layout.alignment: Qt.AlignTop
             spacing: 8
             Repeater {
-                model: page.items
+                model: LiveModel { values: page.items }
                 AbstractButton {
                     Layout.fillWidth: true
                     implicitHeight: 76

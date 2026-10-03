@@ -71,14 +71,14 @@ PageScroll {
     }
 
     Repeater {
-        model: webcam.groups
+        model: LiveModel { values: webcam.groups }
         Panel {
             id: group
             Layout.fillWidth: true
             title: modelData.title
             readonly property var items: modelData.controls
             Repeater {
-                model: group.items
+                model: LiveModel { values: group.items }
                 SettingRow {
                     id: row
                     readonly property var c: modelData

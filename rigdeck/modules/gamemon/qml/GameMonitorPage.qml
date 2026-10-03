@@ -129,7 +129,7 @@ PageScroll {
             subtitle: gamemon.sessionList.length ? gamemon.sessionList.length + " recorded" : "None yet"
             padding: 0
             Repeater {
-                model: gamemon.sessionList
+                model: LiveModel { values: gamemon.sessionList }
                 DeviceRow {
                     compact: true
                     showDivider: index > 0
@@ -189,7 +189,7 @@ PageScroll {
                     MetricCard { Layout.fillWidth: true; icon: "memory-stick"; label: "VRAM"; value: page.fmt(page.stat("vram", "max"), 1); unit: "GiB max"
                                  detail: "RAM " + page.fmt(page.stat("mem", "max"), 1) + " GiB max" }
                     Repeater {
-                        model: Object.keys(page.sm.disks || {}).filter(k => (page.sm.disks[k] || {}).temp)
+                        model: LiveModel { values: Object.keys(page.sm.disks || {}).filter(k => (page.sm.disks[k] || {}).temp) }
                         MetricCard { Layout.fillWidth: true; icon: "hard-drive"; label: modelData; unit: "°C max"
                                      value: page.fmt(page.sm.disks[modelData].temp.max)
                                      detail: "read " + page.fmt(page.sm.disks[modelData].read / 1e9, 2) + " GB · written " + page.fmt(page.sm.disks[modelData].written / 1e9, 2) + " GB" }
@@ -199,7 +199,7 @@ PageScroll {
 
             // graphs over the whole session
             Repeater {
-                model: !page.d.id ? [] : [
+                model: LiveModel { values: !page.d.id ? [] : [
                     { title: "FPS", values: page.fr ? page.fr.fps : [], max: 0, show: !!page.fr },
                     { title: "Frametimes (ms) — spikes are stutters", values: page.fr ? page.fr.frametimes : [], max: 0, show: !!page.fr },
                     { title: "CPU load (filled) and busiest thread (line), %", values: page.se.cpu || [], values2: page.se.cpuMax || [], max: 100, show: true },
@@ -207,7 +207,7 @@ PageScroll {
                     { title: "CPU temperature (filled) and GPU hotspot (line), °C", values: page.se.cpuTemp || [], values2: page.se.gpuHotspot || [], max: 0, show: true },
                     { title: "GPU power, W", values: page.se.gpuPower || [], max: 0, show: true },
                     { title: "Memory (filled) and VRAM (line), GiB", values: page.se.mem || [], values2: page.se.vram || [], max: 0, show: true }
-                ]
+                ] }
                 Panel {
                     Layout.fillWidth: true
                     visible: modelData.show
@@ -225,7 +225,7 @@ PageScroll {
                 title: "All readings"
                 subtitle: "average · 95th percentile · maximum"
                 Repeater {
-                    model: Object.keys(gamemon.metrics).filter(k => page.m[k])
+                    model: LiveModel { values: Object.keys(gamemon.metrics).filter(k => page.m[k]) }
                     KeyValue {
                         key: gamemon.metrics[modelData].label
                         value: page.fmt(page.m[modelData].avg, 1) + " · " + page.fmt(page.m[modelData].p95, 1) + " · "

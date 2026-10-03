@@ -12,7 +12,7 @@ PageScroll {
 
     PageHeader { title: "Storage"; subtitle: system.storage.length + " drives"; status: "Live" }
     Repeater {
-        model: system.storage
+        model: LiveModel { values: system.storage }
         Panel {
             id: drive
             Layout.fillWidth: true
@@ -78,7 +78,7 @@ PageScroll {
                 font.pixelSize: 13
             }
             Repeater {
-                model: modelData.filesystems
+                model: LiveModel { values: modelData.filesystems }
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 4

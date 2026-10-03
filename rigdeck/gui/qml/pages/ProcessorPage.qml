@@ -83,7 +83,7 @@ PageScroll {
         KeyValue { key: "Clock"; value: "base " + page.ghz(page.sp.baseMhz) + " · boost up to " + page.ghz(page.sp.maxMhz)
                                         + " · lowest " + page.ghz(page.sp.minMhz) }
         Repeater {
-            model: page.sp.caches || []
+            model: LiveModel { values: page.sp.caches || [] }
             KeyValue {
                 key: "L" + modelData.level + " cache" + (modelData.type === "Unified" ? "" : " (" + modelData.type.toLowerCase() + ")")
                 value: page.bytes(modelData.size * modelData.instances)

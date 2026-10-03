@@ -67,7 +67,7 @@ PageScroll {
             Button { text: "Normal"; onClicked: monitor.setVibrance("", 50) }
         }
         Repeater {
-            model: monitor.vibranceOutputs
+            model: LiveModel { values: monitor.vibranceOutputs }
             SettingRow {
                 id: vrow
                 readonly property var o: modelData
@@ -110,7 +110,7 @@ PageScroll {
 
     // ---- one panel per monitor
     Repeater {
-        model: page.mons
+        model: LiveModel { values: page.mons }
         Panel {
             id: mon
             readonly property int mi: index
@@ -120,7 +120,7 @@ PageScroll {
             enabled: monitor.confirmSeconds === 0
 
             Repeater {
-                model: modelData.controls
+                model: LiveModel { values: modelData.controls }
                 SettingRow {
                     id: row
                     readonly property var c: modelData

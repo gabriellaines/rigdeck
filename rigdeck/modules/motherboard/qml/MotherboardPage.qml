@@ -41,7 +41,7 @@ PageScroll {
         columns: page.pageWidth >= 900 ? 3 : page.pageWidth >= 520 ? 2 : 1
         columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
         Repeater {
-            model: page.s.temps || []
+            model: LiveModel { values: page.s.temps || [] }
             MetricCard {
                 Layout.fillWidth: true
                 icon: "thermometer"
@@ -61,7 +61,7 @@ PageScroll {
                   : page.spinning + " of " + page.fans.length + " headers have a fan · speeds follow the BIOS"
         padding: 0
         Repeater {
-            model: page.fans.filter(f => f.connected)
+            model: LiveModel { values: page.fans.filter(f => f.connected) }
             DeviceRow {
                 showDivider: index > 0
                 icon: "fan"
@@ -75,7 +75,7 @@ PageScroll {
 
     // ---- lighting (ASUS Aura)
     Repeater {
-        model: page.light.zones || []
+        model: LiveModel { values: page.light.zones || [] }
         Panel {
             id: zone
             readonly property var zn: modelData

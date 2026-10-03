@@ -102,7 +102,7 @@ PageScroll {
                     columns: page.pageWidth >= 1100 ? 4 : 2
                     columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
                     Repeater {
-                        model: [
+                        model: LiveModel { values: [
                             { label: "CPU", value: (usagePanel.n.cpu ? usagePanel.n.cpu.total : 0) + "%",
                               values: usagePanel.h.cpu || [], max: 100 },
                             { label: "Memory", value: Math.round((usagePanel.h.memory || [0]).slice(-1)[0] || 0) + "%",
@@ -114,7 +114,7 @@ PageScroll {
                               values: usagePanel.net.length ? ((usagePanel.h.nets || {})[usagePanel.net[0].device] || {}).rx || [] : [],
                               values2: usagePanel.net.length ? ((usagePanel.h.nets || {})[usagePanel.net[0].device] || {}).tx || [] : [],
                               max: 0 }
-                        ]
+                        ] }
                         ColumnLayout {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -169,7 +169,7 @@ PageScroll {
                 status: "Monitoring"
             }
             Repeater {
-                model: page.deviceRows
+                model: LiveModel { values: page.deviceRows }
                 DeviceRow {
                     readonly property var s: modelData
                     compact: true

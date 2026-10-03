@@ -29,3 +29,4 @@ TextField 1.0 TextField.qml
 SpinBox 1.0 SpinBox.qml
 ComboBox 1.0 ComboBox.qml
 BusyGate 1.0 BusyGate.qml
+LiveModel 1.0 LiveModel.qml

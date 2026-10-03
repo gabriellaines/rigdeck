@@ -291,7 +291,7 @@ PageScroll {
                     }
                     ButtonGroup { id: radioGroup }
                     Repeater {
-                        model: cooler.files
+                        model: LiveModel { values: cooler.files }
                         Item {
                             Layout.fillWidth: true
                             implicitHeight: 56

@@ -140,7 +140,7 @@ ApplicationWindow {
                     anchors.rightMargin: 9
                     spacing: 4
                     Repeater {
-                        model: root.sidebarPages
+                        model: LiveModel { values: root.sidebarPages }
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 4
@@ -186,7 +186,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 currentIndex: Math.max(0, root.pages.findIndex(p => p.id === root.currentId))
                 Repeater {
-                    model: root.pages
+                    model: LiveModel { values: root.pages }
                     Loader {
                         // pages load on first visit, then stay alive for instant switching
                         active: StackLayout.isCurrentItem || item !== null
