@@ -16,6 +16,13 @@ PageScroll {
     readonly property var m: sm.metrics || ({})
     readonly property var fr: d.frames || null
     readonly property var se: d.series || ({})
+    readonly property var away: d.away || []
+    readonly property var ig: fr && fr.inGame ? fr.inGame : null
+    function clock(t) {
+        t = Math.floor(t)
+        const m = Math.floor(t / 60) % 60, s = t % 60
+        return (t >= 3600 ? Math.floor(t / 3600) + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s
+    }
 
     Connections { target: gamemon; function onToast(t) { root.showToast(t) } }
     onShownChanged: if (shown) gamemon.refreshList()
@@ -101,14 +108,21 @@ PageScroll {
     Banner {
         visible: gamemon.mangohud === "setup"
         tone: "info"
-        text: "Add FPS, frametimes and 1% lows to your sessions: RigDeck can set up MangoHud to log every frame (the overlay stays hidden). Then add  mangohud %command%  to a game's Steam launch options."
+        text: "Add FPS, frametimes and 1% lows to your sessions: RigDeck can set up MangoHud to log every frame. Then add  mangohud %command%  to a game's Steam launch options."
         buttonText: "Set up MangoHud"
+        onClicked: gamemon.setupMangohud()
+    }
+    Banner {
+        visible: gamemon.mangohud === "outdated"
+        tone: "warning"
+        text: "Your sessions aren't getting FPS: the MangoHud config from an older RigDeck hides the overlay in a way that also stops MangoHud logging. Update it, then restart the game."
+        buttonText: "Update MangoHud config"
         onClicked: gamemon.setupMangohud()
     }
     Banner {
         visible: gamemon.mangohud === "conflict"
         tone: "info"
-        text: "For FPS and frametimes, add these lines to " + gamemon.mangohudConf + ":  " + gamemon.mangohudLines.join("  ·  ")
+        text: "For FPS and frametimes, add these lines to " + gamemon.mangohudConf + ":  " + gamemon.mangohudLines.join("  ·  ") + "  (and remove no_display if it's there, it stops logging)"
     }
     Banner {
         visible: gamemon.mangohud === "missing"
@@ -169,9 +183,13 @@ PageScroll {
                     columns: page.pageWidth >= 1100 ? 4 : 2
                     columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "gauge"; label: "Average FPS"
-                                 value: page.fr ? page.fmt(page.fr.avgFps, 1) : "—"; detail: page.fr ? "frametime " + page.fr.ftAvg + " ms" : "" }
+                                 value: page.fr ? page.fmt(page.fr.avgFps, 1) : "—"
+                                 detail: page.ig ? "in game only " + page.fmt(page.ig.avgFps, 1) + " FPS (alt-tabs left out)"
+                                                 : page.fr ? "frametime " + page.fr.ftAvg + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "arrow-down"; label: "1% low"
-                                 value: page.fr ? page.fmt(page.fr.low1, 1) : "—"; unit: "FPS"; detail: page.fr ? "99th pct frametime " + page.fr.ftP99 + " ms" : "" }
+                                 value: page.fr ? page.fmt(page.fr.low1, 1) : "—"; unit: "FPS"
+                                 detail: page.ig ? "in game only " + page.fmt(page.ig.low1, 1) + " FPS"
+                                                 : page.fr ? "99th pct frametime " + page.fr.ftP99 + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "arrow-down"; label: "0.1% low"
                                  value: page.fr ? page.fmt(page.fr.low01, 1) : "—"; unit: "FPS"; detail: page.fr ? "worst frame " + page.fr.ftMax + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "activity"; label: "Frames"
@@ -200,8 +218,8 @@ PageScroll {
             // graphs over the whole session
             Repeater {
                 model: LiveModel { values: !page.d.id ? [] : [
-                    { title: "FPS", values: page.fr ? page.fr.fps : [], max: 0, show: !!page.fr },
-                    { title: "Frametimes (ms) — spikes are stutters", values: page.fr ? page.fr.frametimes : [], max: 0, show: !!page.fr },
+                    { title: "FPS" + (page.away.length ? " — shaded: alt-tabbed out of the game" : ""), values: page.fr ? page.fr.fps : [], max: 0, show: !!page.fr, bands: true },
+                    { title: "Frametimes (ms) — spikes are stutters", values: page.fr ? page.fr.frametimes : [], max: 0, show: !!page.fr, bands: false },
                     { title: "CPU load (filled) and busiest thread (line), %", values: page.se.cpu || [], values2: page.se.cpuMax || [], max: 100, show: true },
                     { title: "GPU load, %", values: page.se.gpu || [], max: 100, show: true },
                     { title: "CPU temperature (filled) and GPU hotspot (line), °C", values: page.se.cpuTemp || [], values2: page.se.gpuHotspot || [], max: 0, show: true },
@@ -214,7 +232,23 @@ PageScroll {
                     title: modelData.title
                     padding: 16
                     HistoryChart { Layout.fillWidth: true; implicitHeight: 130; values: modelData.values; values2: modelData.values2 || []
-                                   maxValue: modelData.max; length: Math.max(2, modelData.values.length) }
+                                   maxValue: modelData.max; length: Math.max(2, modelData.values.length)
+                                   bands: modelData.bands === false ? [] : page.away }
+                }
+            }
+
+            // alt-tabs: when the game's window lost focus
+            Panel {
+                Layout.fillWidth: true
+                visible: page.away.length > 0
+                title: "Alt-tabs"
+                subtitle: page.away.length + " · " + page.clock(page.away.reduce((n, a) => n + a.end - a.start, 0)) + " away in total · shaded on the graphs"
+                Repeater {
+                    model: LiveModel { values: page.away }
+                    KeyValue {
+                        key: page.clock(modelData.start) + " – " + page.clock(modelData.end) + "  (" + Math.round(modelData.end - modelData.start) + " s)"
+                        value: modelData.to
+                    }
                 }
             }
 

@@ -136,7 +136,9 @@ class GameMonitorBackend(QObject):
         def read():
             d = sessions.details(sid)
             n = len(d["samples"])
-            return {"id": sid, "meta": d["meta"], "summary": d["summary"], "frames": d["frames"],
+            dur = d["summary"].get("duration") or 0
+            away = [{**a, "from": a["start"] / dur, "to_": a["end"] / dur} for a in d["away"]] if dur else []
+            return {"id": sid, "meta": d["meta"], "summary": d["summary"], "frames": d["frames"], "away": away,
                     "series": _series(d["samples"], GRAPH_POINTS), "points": min(n, GRAPH_POINTS)}
 
         def got(d):

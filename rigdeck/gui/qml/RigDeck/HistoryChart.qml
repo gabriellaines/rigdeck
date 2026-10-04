@@ -3,6 +3,7 @@ import QtQuick.Shapes
 
 // Rolling history like Task Manager's: newest sample on the right, `length` samples across.
 // `values` fills an area; optional `values2` draws a second line (e.g. upload, writes).
+// Optional `bands`: [{from, to_}] fractions of the width, shaded behind the curve (e.g. alt-tabs).
 // maxValue <= 0 scales to the largest value shown (and eases to a new scale).
 // Drawn with Shapes, so an update never blanks the chart: the old curve stays until the new one
 // replaces it, and each new sample slides in from the right over `slideMs` (off with reduce motion).
@@ -10,6 +11,8 @@ Item {
     id: root
     property var values: []
     property var values2: []
+    property var bands: []
+    property color bandColor: theme.warning
     property real maxValue: 100
     property int length: 60
     property color color: theme.accent
@@ -70,6 +73,14 @@ Item {
         Rectangle { required property int index
                     width: 1; height: root.height; x: Math.round(root.width * (index + 1) / 6)
                     color: Qt.alpha(theme.text, 0.07) }
+    }
+
+    Repeater {
+        model: root.bands || []
+        Rectangle { required property var modelData
+                    x: root.width * modelData.from; height: root.height
+                    width: Math.max(2, root.width * (modelData.to_ - modelData.from))
+                    color: Qt.alpha(root.bandColor, 0.16) }
     }
 
     Shape {
