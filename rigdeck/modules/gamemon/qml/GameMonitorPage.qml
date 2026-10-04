@@ -6,6 +6,7 @@ import RigDeck
 // Record telemetry while playing (like CapFrameX), then review it.
 PageScroll {
     id: page
+    BusyGate { id: gamemonBusy; busy: gamemon.busy }
     property bool shown: true
     readonly property var lv: gamemon.live
     readonly property var last: lv.last || ({})
@@ -15,6 +16,13 @@ PageScroll {
     readonly property var m: sm.metrics || ({})
     readonly property var fr: d.frames || null
     readonly property var se: d.series || ({})
+    readonly property var away: d.away || []
+    readonly property var ig: fr && fr.inGame ? fr.inGame : null
+    function clock(t) {
+        t = Math.floor(t)
+        const m = Math.floor(t / 60) % 60, s = t % 60
+        return (t >= 3600 ? Math.floor(t / 3600) + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s
+    }
 
     Connections { target: gamemon; function onToast(t) { root.showToast(t) } }
     onShownChanged: if (shown) gamemon.refreshList()
@@ -54,7 +62,7 @@ PageScroll {
                 text: gamemon.recording ? "Stop and save" : "Start recording"
                 icon.source: "image://icons/" + (gamemon.recording ? "circle-stop" : "circle-play") + "/" + theme.onAccent.toString().slice(-6)
                 highlighted: true
-                enabled: !gamemon.busy
+                enabled: !gamemonBusy.shown
                 onClicked: gamemon.recording ? gamemon.stop() : gamemon.start(label.text)
             }
         }
@@ -87,32 +95,39 @@ PageScroll {
                                maxValue: 110; length: 120 }
             }
         }
+        Label {
+            visible: gamemon.mangohud === "ready"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: theme.muted; font.pixelSize: 12
+            text: "For FPS and frame times, launch games with MangoHud (Steam: launch option  mangohud %command%)."
+        }
     }
 
     // ---- frames (MangoHud)
     Banner {
         visible: gamemon.mangohud === "setup"
         tone: "info"
-        text: "Add FPS, frametimes and 1% lows to your sessions: RigDeck can set up MangoHud to log every frame (the overlay stays hidden). Then add  mangohud %command%  to a game's Steam launch options."
+        text: "Add FPS, frametimes and 1% lows to your sessions: RigDeck can set up MangoHud to log every frame. Then add  mangohud %command%  to a game's Steam launch options."
         buttonText: "Set up MangoHud"
+        onClicked: gamemon.setupMangohud()
+    }
+    Banner {
+        visible: gamemon.mangohud === "outdated"
+        tone: "warning"
+        text: "Your sessions aren't getting FPS: the MangoHud config from an older RigDeck hides the overlay in a way that also stops MangoHud logging. Update it, then restart the game."
+        buttonText: "Update MangoHud config"
         onClicked: gamemon.setupMangohud()
     }
     Banner {
         visible: gamemon.mangohud === "conflict"
         tone: "info"
-        text: "For FPS and frametimes, add these lines to " + gamemon.mangohudConf + ":  " + gamemon.mangohudLines.join("  ·  ")
+        text: "For FPS and frametimes, add these lines to " + gamemon.mangohudConf + ":  " + gamemon.mangohudLines.join("  ·  ") + "  (and remove no_display if it's there, it stops logging)"
     }
     Banner {
         visible: gamemon.mangohud === "missing"
         tone: "info"
         text: "Install MangoHud (sudo pacman -S mangohud lib32-mangohud) to add FPS and frametimes to your sessions."
-    }
-    Label {
-        visible: gamemon.mangohud === "ready"
-        Layout.fillWidth: true
-        wrapMode: Text.WordWrap
-        color: theme.muted; font.pixelSize: 12
-        text: "MangoHud logs every frame for RigDeck. Games launched with  mangohud %command%  (Steam launch options) get FPS and frametimes in their sessions."
     }
 
     // ---- sessions
@@ -128,7 +143,7 @@ PageScroll {
             subtitle: gamemon.sessionList.length ? gamemon.sessionList.length + " recorded" : "None yet"
             padding: 0
             Repeater {
-                model: gamemon.sessionList
+                model: LiveModel { values: gamemon.sessionList }
                 DeviceRow {
                     compact: true
                     showDivider: index > 0
@@ -168,9 +183,13 @@ PageScroll {
                     columns: page.pageWidth >= 1100 ? 4 : 2
                     columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "gauge"; label: "Average FPS"
-                                 value: page.fr ? page.fmt(page.fr.avgFps, 1) : "—"; detail: page.fr ? "frametime " + page.fr.ftAvg + " ms" : "" }
+                                 value: page.fr ? page.fmt(page.fr.avgFps, 1) : "—"
+                                 detail: page.ig ? "in game only " + page.fmt(page.ig.avgFps, 1) + " FPS (alt-tabs left out)"
+                                                 : page.fr ? "frametime " + page.fr.ftAvg + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "arrow-down"; label: "1% low"
-                                 value: page.fr ? page.fmt(page.fr.low1, 1) : "—"; unit: "FPS"; detail: page.fr ? "99th pct frametime " + page.fr.ftP99 + " ms" : "" }
+                                 value: page.fr ? page.fmt(page.fr.low1, 1) : "—"; unit: "FPS"
+                                 detail: page.ig ? "in game only " + page.fmt(page.ig.low1, 1) + " FPS"
+                                                 : page.fr ? "99th pct frametime " + page.fr.ftP99 + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "arrow-down"; label: "0.1% low"
                                  value: page.fr ? page.fmt(page.fr.low01, 1) : "—"; unit: "FPS"; detail: page.fr ? "worst frame " + page.fr.ftMax + " ms" : "" }
                     MetricCard { visible: !!page.fr; Layout.fillWidth: true; icon: "activity"; label: "Frames"
@@ -188,7 +207,7 @@ PageScroll {
                     MetricCard { Layout.fillWidth: true; icon: "memory-stick"; label: "VRAM"; value: page.fmt(page.stat("vram", "max"), 1); unit: "GiB max"
                                  detail: "RAM " + page.fmt(page.stat("mem", "max"), 1) + " GiB max" }
                     Repeater {
-                        model: Object.keys(page.sm.disks || {}).filter(k => (page.sm.disks[k] || {}).temp)
+                        model: LiveModel { values: Object.keys(page.sm.disks || {}).filter(k => (page.sm.disks[k] || {}).temp) }
                         MetricCard { Layout.fillWidth: true; icon: "hard-drive"; label: modelData; unit: "°C max"
                                      value: page.fmt(page.sm.disks[modelData].temp.max)
                                      detail: "read " + page.fmt(page.sm.disks[modelData].read / 1e9, 2) + " GB · written " + page.fmt(page.sm.disks[modelData].written / 1e9, 2) + " GB" }
@@ -198,22 +217,38 @@ PageScroll {
 
             // graphs over the whole session
             Repeater {
-                model: !page.d.id ? [] : [
-                    { title: "FPS", values: page.fr ? page.fr.fps : [], max: 0, show: !!page.fr },
-                    { title: "Frametimes (ms) — spikes are stutters", values: page.fr ? page.fr.frametimes : [], max: 0, show: !!page.fr },
+                model: LiveModel { values: !page.d.id ? [] : [
+                    { title: "FPS" + (page.away.length ? " — shaded: alt-tabbed out of the game" : ""), values: page.fr ? page.fr.fps : [], max: 0, show: !!page.fr, bands: true },
+                    { title: "Frametimes (ms) — spikes are stutters", values: page.fr ? page.fr.frametimes : [], max: 0, show: !!page.fr, bands: false },
                     { title: "CPU load (filled) and busiest thread (line), %", values: page.se.cpu || [], values2: page.se.cpuMax || [], max: 100, show: true },
                     { title: "GPU load, %", values: page.se.gpu || [], max: 100, show: true },
                     { title: "CPU temperature (filled) and GPU hotspot (line), °C", values: page.se.cpuTemp || [], values2: page.se.gpuHotspot || [], max: 0, show: true },
                     { title: "GPU power, W", values: page.se.gpuPower || [], max: 0, show: true },
                     { title: "Memory (filled) and VRAM (line), GiB", values: page.se.mem || [], values2: page.se.vram || [], max: 0, show: true }
-                ]
+                ] }
                 Panel {
                     Layout.fillWidth: true
                     visible: modelData.show
                     title: modelData.title
                     padding: 16
                     HistoryChart { Layout.fillWidth: true; implicitHeight: 130; values: modelData.values; values2: modelData.values2 || []
-                                   maxValue: modelData.max; length: Math.max(2, modelData.values.length) }
+                                   maxValue: modelData.max; length: Math.max(2, modelData.values.length)
+                                   bands: modelData.bands === false ? [] : page.away }
+                }
+            }
+
+            // alt-tabs: when the game's window lost focus
+            Panel {
+                Layout.fillWidth: true
+                visible: page.away.length > 0
+                title: "Alt-tabs"
+                subtitle: page.away.length + " · " + page.clock(page.away.reduce((n, a) => n + a.end - a.start, 0)) + " away in total · shaded on the graphs"
+                Repeater {
+                    model: LiveModel { values: page.away }
+                    KeyValue {
+                        key: page.clock(modelData.start) + " – " + page.clock(modelData.end) + "  (" + Math.round(modelData.end - modelData.start) + " s)"
+                        value: modelData.to
+                    }
                 }
             }
 
@@ -224,7 +259,7 @@ PageScroll {
                 title: "All readings"
                 subtitle: "average · 95th percentile · maximum"
                 Repeater {
-                    model: Object.keys(gamemon.metrics).filter(k => page.m[k])
+                    model: LiveModel { values: Object.keys(gamemon.metrics).filter(k => page.m[k]) }
                     KeyValue {
                         key: gamemon.metrics[modelData].label
                         value: page.fmt(page.m[modelData].avg, 1) + " · " + page.fmt(page.m[modelData].p95, 1) + " · "

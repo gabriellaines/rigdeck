@@ -15,7 +15,7 @@ Panel {
     subtitle: "Connected through Bluetooth · settings in your desktop's Bluetooth panel"
     padding: 0
     Repeater {
-        model: root.devices
+        model: LiveModel { values: root.devices }
         DeviceRow {
             showDivider: index > 0
             icon: modelData.icon

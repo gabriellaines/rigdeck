@@ -24,7 +24,7 @@ Card {
         }
         Label { text: root.primary; color: theme.text; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
         Repeater {
-            model: root.lines
+            model: LiveModel { values: root.lines }
             Label { text: modelData; color: theme.muted; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
         }
     }

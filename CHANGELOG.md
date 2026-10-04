@@ -8,6 +8,32 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.7.0 — 2026-10-03
+
+- New Game monitor: record CPU, GPU, memory and disk readings while you play, then review averages, peaks and graphs for each session
+- With MangoHud, game sessions also get FPS, frametimes and 1% / 0.1% lows (the Game monitor page can set it up; the MangoHud overlay shows in games)
+- Monitors: new colour vibrance slider for each screen, like NVIDIA's Digital Vibrance (KDE Plasma on Wayland)
+- Keyboard: the page now shows each onboard profile's actuation point and Rapid Trigger settings (PRO X TKL RAPID)
+- New `rigdeck keyboard analog` command lists the same settings
+- Keyboard: set the actuation point and Rapid Trigger for each onboard profile, for all keys or key by key (PRO X TKL RAPID)
+- Your keyboard settings come back automatically after switching profiles with Fn + F2 / F3 / F4 or plugging the keyboard back in
+- New `rigdeck keyboard analog-set` and `analog-reset` commands
+- Keyboard: a picture of the keyboard where you select keys and set their actuation point, Rapid Trigger and colour
+- Keyboard: per-key colours (and a background colour) for each onboard profile, kept after profile switches
+- Keyboard: selecting all keys and changing their colour works (it failed with an error)
+- Graphs no longer flicker when they update: new readings slide in smoothly
+- Cleaner buttons and sliders, and the sidebar is grouped into Monitoring, Hardware and Devices
+- Keyboard page reorganised: pick a profile, then set every key at once or individual keys; Rapid Trigger is now "Release: Rapid" with a release distance
+- Overview, Motherboard, Graphics and Mouse pages are simpler, with clearer wording
+- Fan curve charts no longer flash while the page refreshes
+- Changing keyboard settings (brightness, keys, colours) no longer makes the page flicker
+- After sleep, a reboot or replugging, the keyboard goes back to the profile you were using, with your RigDeck settings
+- Pages no longer flicker when their numbers update: lists and graphs stay in place and just change
+- Keyboard page simplified: select keys (or none for all keys) and set them in one place, with a picture of the key's travel showing where it types and lets go
+- Game monitor: alt-tabs during a session are detected (KDE Plasma) and listed, with those moments shaded on the graphs
+- Game monitor: Average FPS and 1% low also show in-game figures that leave the alt-tab time out
+- Exported session CSVs now include FPS for each second, the focused window, every alt-tab and an FPS summary
+
 ## 0.6.0 — 2026-10-01
 
 - New Network page with Ethernet and Wi-Fi tabs: link speed or signal, live download and upload, addresses, and nearby Wi-Fi networks

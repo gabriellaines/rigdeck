@@ -5,6 +5,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: mouseBusy; busy: mouse.busy }
     property bool shown: true
     readonly property var s: mouse.state
     readonly property bool ok: mouse.status === "ok"
@@ -99,9 +100,9 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Sensitivity (DPI)"
-        subtitle: "The DPI button on the mouse cycles through these stages; the light shows which one is active"
+        subtitle: "The DPI button on the mouse steps through these; its light shows which one is active"
         SettingRow {
             title: "Number of stages"
             Segmented {
@@ -128,8 +129,8 @@ PageScroll {
                     onValueModified: { const d = page.draft.slice(); d[stageRow.n] = value; page.draft = d }
                 }
                 Button {
-                    text: "Use"
-                    enabled: stageRow.n !== page.s.currentStage && stageRow.n < page.s.stageCount
+                    text: "Switch to this"
+                    visible: stageRow.n !== page.s.currentStage && stageRow.n < page.s.stageCount
                     onClicked: mouse.setCurrentStage(stageRow.n)
                 }
             }
@@ -149,7 +150,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Performance"
         subtitle: "Saved on the mouse right away"
         SettingRow {
@@ -188,7 +189,7 @@ PageScroll {
         Layout.fillWidth: true
         readonly property var sn: page.s.sensor || null
         visible: page.known && sn !== null
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Sensor"
         subtitle: "Saved on the mouse right away · names and options as in the maker's own software"
         SettingRow {
@@ -273,7 +274,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         visible: page.known
-        enabled: page.ok && !mouse.busy
+        enabled: page.ok && !mouseBusy.shown
         title: "Light"
         readonly property var led: page.s.led || ({})
         SettingRow {
@@ -302,17 +303,12 @@ PageScroll {
         }
     }
 
-    Panel {
+    RowLayout {
         Layout.fillWidth: true
         visible: page.known
-        title: "Backup"
-        subtitle: "RigDeck saves the mouse's settings before its first change; backups are in ~/.local/share/rigdeck/mouse-backups"
-        RowLayout {
-            Layout.fillWidth: true
-            Label { text: "Restore one with: rigdeck mouse restore FILE"; color: theme.muted; font.pixelSize: 12
-                    Layout.fillWidth: true }
-            Button { text: "Back up now"; onClicked: mouse.backupNow() }
-        }
+        Label { text: "RigDeck keeps a copy of the mouse's settings from before its first change."
+                color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+        Button { text: "Back up now"; onClicked: mouse.backupNow() }
     }
 
     BluetoothDevices { category: "mouse"; label: "Bluetooth mice" }

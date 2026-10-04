@@ -5,6 +5,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: headsetBusy; busy: headset.busy }
     property bool shown: true
     readonly property var i: headset.info
     readonly property var s: headset.settings
@@ -87,7 +88,7 @@ PageScroll {
         visible: page.usb
         title: "Settings"
         subtitle: "Applied right away and re-applied whenever the headset turns on"
-        enabled: page.on && !headset.busy
+        enabled: page.on && !headsetBusy.shown
 
         SettingRow {
             visible: page.has("sidetone")

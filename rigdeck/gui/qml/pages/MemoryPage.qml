@@ -49,13 +49,13 @@ PageScroll {
         Layout.fillWidth: true
         visible: page.mods.length > 0
         title: "Modules"
-        subtitle: "Read from each module's own SPD chip. The speed it actually runs at (XMP/EXPO on or off) is set in the BIOS."
+        subtitle: "What each memory stick reports about itself. The speed it actually runs at (XMP/EXPO) is set in the BIOS."
         GridLayout {
             Layout.fillWidth: true
             columns: page.pageWidth >= 900 ? 2 : 1
             columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
             Repeater {
-                model: page.mods
+                model: LiveModel { values: page.mods }
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: col.implicitHeight + 28
@@ -88,7 +88,7 @@ PageScroll {
         title: "Compressed swap (zram)"
         subtitle: "Swap that lives in RAM, compressed — no disk involved"
         Repeater {
-            model: page.m.zram || []
+            model: LiveModel { values: page.m.zram || [] }
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6

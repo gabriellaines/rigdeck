@@ -5,6 +5,8 @@ import QtQuick.Controls
 // `editable`. Keyboard: Tab focuses the chart, Left/Right choose a point, Shift+arrows move it.
 Canvas {
     id: root
+    renderStrategy: Canvas.Immediate          // no blank frame between clear and redraw
+    renderTarget: Canvas.FramebufferObject
     property var points: []
     property var points2: []          // second, dashed curve (pump)
     property bool editable: false
@@ -32,8 +34,14 @@ Canvas {
                  rpm: (1 - (y - padT) / (height - padT - padB)) * rpmMax }
     }
 
-    onPointsChanged: requestPaint()
-    onPoints2Changed: requestPaint()
+    // pages re-read their data every few seconds: only redraw when the curve really changed
+    property string _drawn: ""
+    function maybePaint() {
+        const key = JSON.stringify([points, points2])
+        if (key !== _drawn) { _drawn = key; requestPaint() }
+    }
+    onPointsChanged: maybePaint()
+    onPoints2Changed: maybePaint()
     onSelectedChanged: requestPaint()
     onActiveFocusChanged: requestPaint()
     onWidthChanged: requestPaint()

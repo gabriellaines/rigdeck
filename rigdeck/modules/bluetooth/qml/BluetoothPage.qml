@@ -19,7 +19,7 @@ PageScroll {
     }
 
     Repeater {
-        model: bluez.adapters
+        model: LiveModel { values: bluez.adapters }
         Panel {
             id: ad
             readonly property var a: modelData
@@ -35,7 +35,7 @@ PageScroll {
                 Toggle { checked: ad.a.powered; Accessible.name: "Bluetooth"; onToggled: bluez.setPowered(ad.a.path, checked) }
             }
             Repeater {
-                model: ad.mine
+                model: LiveModel { values: ad.mine }
                 DeviceRow {
                     Layout.leftMargin: -20; Layout.rightMargin: -20
                     icon: modelData.icon

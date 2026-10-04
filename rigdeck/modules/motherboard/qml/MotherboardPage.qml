@@ -5,6 +5,7 @@ import RigDeck
 
 PageScroll {
     id: page
+    BusyGate { id: motherboardBusy; busy: motherboard.busy }
     property bool shown: true
     readonly property var s: motherboard.state
     readonly property var b: s.board || ({})
@@ -40,7 +41,7 @@ PageScroll {
         columns: page.pageWidth >= 900 ? 3 : page.pageWidth >= 520 ? 2 : 1
         columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
         Repeater {
-            model: page.s.temps || []
+            model: LiveModel { values: page.s.temps || [] }
             MetricCard {
                 Layout.fillWidth: true
                 icon: "thermometer"
@@ -56,45 +57,30 @@ PageScroll {
         visible: page.sensors && page.fans.length > 0
         title: "Fan headers"
         subtitle: page.spinning === 0
-                  ? "No fan reports its speed — nothing is connected, or the fans have no speed wire (fans on a cooler hub show on the Cooler page)"
-                  : page.spinning + " of " + page.fans.length + " headers have a fan"
+                  ? "No fans connected to the board. Fans on the cooler's hub are on the Cooler page."
+                  : page.spinning + " of " + page.fans.length + " headers have a fan · speeds follow the BIOS"
         padding: 0
         Repeater {
-            model: page.fans
+            model: LiveModel { values: page.fans.filter(f => f.connected) }
             DeviceRow {
                 showDivider: index > 0
                 icon: "fan"
                 title: "Header " + modelData.n
                 detail: modelData.mode + (modelData.duty !== null ? " · " + modelData.duty + "% power" : "")
-                status: modelData.connected ? modelData.rpm.toLocaleString(Qt.locale(), "f", 0) + " RPM" : "No fan"
-                tone: modelData.connected ? theme.live : theme.muted
+                status: modelData.rpm.toLocaleString(Qt.locale(), "f", 0) + " RPM"
+                tone: theme.live
             }
-        }
-    }
-
-    Panel {
-        Layout.fillWidth: true
-        visible: page.sensors
-        title: "Fan control"
-        subtitle: "Not available yet"
-        Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            color: theme.muted
-            font.pixelSize: 13
-            text: "Header fans follow the BIOS for now. RigDeck will add curves once they can be tested with fans "
-                  + "connected — a wrong setting here could stop a CPU fan."
         }
     }
 
     // ---- lighting (ASUS Aura)
     Repeater {
-        model: page.light.zones || []
+        model: LiveModel { values: page.light.zones || [] }
         Panel {
             id: zone
             readonly property var zn: modelData
             Layout.fillWidth: true
-            enabled: !motherboard.busy
+            enabled: !motherboardBusy.shown
             title: "Lighting · " + zn.label
             subtitle: (zn.mode ? "Kept after restarts" : "The controller can't report its current effect; pick one to take over")
                       + " · Aura firmware " + page.light.firmware

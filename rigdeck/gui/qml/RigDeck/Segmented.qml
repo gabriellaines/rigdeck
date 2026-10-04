@@ -11,7 +11,7 @@ Flow {
     signal activated(int index)
     spacing: 6
     Repeater {
-        model: root.model
+        model: LiveModel { values: root.model }
         Chip {
             label: modelData
             checkable: true

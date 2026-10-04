@@ -70,18 +70,17 @@ PageScroll {
         Layout.fillWidth: true
         columns: page.pageWidth >= 900 ? 4 : page.pageWidth >= 520 ? 2 : 1
         columnSpacing: 12; rowSpacing: 12; uniformCellWidths: true
-        MetricCard { Layout.fillWidth: true; icon: "thermometer"; label: "Core (edge)"; value: page.fmt(page.t.temp_edge); unit: "°C"
-                     detail: page.t.temp_junction ? "Hotspot " + page.fmt(page.t.temp_junction) + " °C" : "" }
-        MetricCard { Layout.fillWidth: true; icon: "memory-stick"; label: "Memory"; value: page.fmt(page.t.temp_mem); unit: "°C"
-                     valueColor: page.t.temp_mem >= 90 ? theme.error : page.t.temp_mem >= 80 ? theme.warning : theme.text
-                     detail: page.gib(page.t.vram_used) + " / " + page.gib(page.t.vram_total) + " GiB VRAM used" }
+        MetricCard { Layout.fillWidth: true; icon: "thermometer"; label: "Temperature"; value: page.fmt(page.t.temp_edge); unit: "°C"
+                     detail: [page.t.temp_junction ? "Hotspot " + page.fmt(page.t.temp_junction) + " °C" : "",
+                              page.t.temp_mem ? "Memory " + page.fmt(page.t.temp_mem) + " °C" : ""].filter(x => x).join(" · ") }
+        MetricCard { Layout.fillWidth: true; icon: "gauge"; label: "Usage"; value: page.fmt(page.t.busy); unit: "%"
+                     detail: [page.t.sclk_mhz ? page.fmt(page.t.sclk_mhz) + " MHz" : "",
+                              page.t.vram_total ? page.gib(page.t.vram_used) + " / " + page.gib(page.t.vram_total) + " GiB VRAM" : ""]
+                             .filter(x => x).join(" · ") }
         MetricCard { Layout.fillWidth: true; icon: "fan"; label: "Fans"; value: page.fmt(page.t.fan_rpm); unit: "RPM"
-                     detail: page.t.fan_rpm === 0 ? "Stopped (zero-RPM)" : (page.ok && page.i.pwm !== null ? page.i.pwm + "% speed" : "") }
+                     detail: page.t.fan_rpm === 0 ? "Stopped (zero RPM)" : (page.ok && page.i.pwm !== null ? page.i.pwm + "% speed" : "") }
         MetricCard { Layout.fillWidth: true; icon: "zap"; label: "Power"; value: page.fmt(page.t.power_w); unit: "W"
                      detail: page.t.power_cap_w ? "Limit " + page.fmt(page.t.power_cap_w) + " W" : "" }
-        MetricCard { Layout.fillWidth: true; icon: "gauge"; label: "Usage"; value: page.fmt(page.t.busy); unit: "%" }
-        MetricCard { Layout.fillWidth: true; icon: "activity"; label: "Core clock"; value: page.fmt(page.t.sclk_mhz); unit: "MHz" }
-        MetricCard { Layout.fillWidth: true; icon: "activity"; label: "Memory clock"; value: page.fmt(page.t.mclk_mhz); unit: "MHz" }
     }
 
     // ---- fan
@@ -104,9 +103,9 @@ PageScroll {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
-                Label { text: "Zero RPM"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
-                Label { text: page.f.zero_rpm ? "Fans stop completely while the GPU is cool"
-                                              : "Fans always spin — better for hot weather and memory temperature"
+                Label { text: "Stop fans when cool"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+                Label { text: page.f.zero_rpm ? "On: the fans stop while the GPU is cool (silent at the desktop)"
+                                              : "Off: the fans always spin a little (cooler memory, no start/stop)"
                         color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             }
             Toggle { checked: page.f.zero_rpm === true; Accessible.name: "Zero RPM"
@@ -129,7 +128,7 @@ PageScroll {
 
         Label {
             visible: page.f.mode === "auto"
-            text: "The driver controls the fans" + (page.i.zeroRpmSupported ? "; the switch above decides whether they may stop." : ".")
+            text: "Automatic: the graphics driver sets the fan speed from the temperature."
             color: theme.muted; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
         }
         ColumnLayout {

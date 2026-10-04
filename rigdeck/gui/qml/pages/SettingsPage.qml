@@ -39,7 +39,7 @@ PageScroll {
     Panel {
         Layout.fillWidth: true
         title: "Background service"
-        subtitle: "Sends CPU temperature to the cooler and animates software lighting effects"
+        subtitle: "Keeps things working while RigDeck is closed: CPU temperature for the cooler, lighting effects, and re-applying your headset, webcam and keyboard settings"
         RowLayout {
             Layout.fillWidth: true
             StatusDot { tone: appState.serviceState === "active" ? theme.live : theme.warning }

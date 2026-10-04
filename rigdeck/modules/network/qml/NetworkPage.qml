@@ -54,7 +54,7 @@ PageScroll {
 
     // ---- one panel per adapter of the selected type
     Repeater {
-        model: page.shownAdapters
+        model: LiveModel { values: page.shownAdapters }
         Panel {
             id: ad
             readonly property var a: modelData
@@ -106,7 +106,7 @@ PageScroll {
                                                   : "None found in the last scan"
         padding: 0
         Repeater {
-            model: (page.s.networks || []).slice(0, 12)
+            model: LiveModel { values: (page.s.networks || []).slice(0, 12) }
             DeviceRow {
                 showDivider: index > 0
                 icon: modelData.signal >= 67 ? "wifi" : modelData.signal >= 34 ? "wifi-high" : "wifi-low"
