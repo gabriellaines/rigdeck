@@ -131,9 +131,15 @@ PageScroll {
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: "Check for updates when RigDeck starts"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                Label { text: "Check for updates automatically"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+                Label { text: "When RigDeck starts and every few hours; the top bar shows when a new version is out"
+                        color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            }
             Toggle { checked: appState.checkUpdatesOnStart; onToggled: appState.checkUpdatesOnStart = checked
-                     Accessible.name: "Check for updates when RigDeck starts" }
+                     Accessible.name: "Check for updates automatically" }
         }
     }
 

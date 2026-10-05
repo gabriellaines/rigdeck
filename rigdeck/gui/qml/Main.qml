@@ -92,12 +92,21 @@ ApplicationWindow {
                 Label { text: "RigDeck"; color: theme.text; font.pixelSize: 14; font.weight: Font.DemiBold }
                 Label { text: "Hardware Control Center"; color: theme.muted; font.pixelSize: 12; visible: !root.compact }
                 Item { Layout.fillWidth: true }
-                Chip {
-                    visible: appState.update.state === "available"
-                    label: "Update available — " + appState.update.latest
-                    checkable: false
-                    hoverEnabled: true
-                    focusPolicy: Qt.StrongFocus
+                // a new version: shown next to the theme switch until it's installed; opens Settings → Updates
+                Button {
+                    readonly property string st: appState.update.state
+                    visible: st === "available" || st === "updating" || st === "updated"
+                    highlighted: true
+                    implicitHeight: 30
+                    text: st === "updated" ? "Restart to finish updating"
+                        : st === "updating" ? "Updating…"
+                        : root.compact ? "Update " + appState.update.latest
+                        : "New version " + appState.update.latest + " available"
+                    icon.source: "image://icons/" + (st === "updated" ? "rotate-cw" : "download") + "/"
+                                 + "ffffff"
+                    ToolTip.visible: hovered
+                    ToolTip.text: st === "updated" ? "Open Settings to restart RigDeck"
+                                                   : "You have " + appState.version + ". Open Settings to update."
                     onClicked: root.navigate("settings")
                 }
                 IconButton {
