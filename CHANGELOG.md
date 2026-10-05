@@ -8,6 +8,11 @@ in its update dialog — write for users, not developers.
 
 ## Unreleased
 
+## 0.7.1 — 2026-10-05
+
+- Resources > CPU can now show a separate graph for each logical processor, like Task Manager
+- Resources > CPU now shows running processes and threads, up time, max boost clock, virtualization and cache sizes
+
 ## 0.7.0 — 2026-10-03
 
 - New Game monitor: record CPU, GPU, memory and disk readings while you play, then review averages, peaks and graphs for each session
