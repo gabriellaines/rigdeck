@@ -60,6 +60,7 @@ for cmd in "" info service update cooler gpu "gpu status" "gpu fan" "gpu power" 
            mouse "mouse list" "mouse status" "mouse set" "mouse backup" "mouse restore" \
            keyboard "keyboard status" "keyboard brightness" "keyboard features" \
            monitor "monitor status" "monitor set" motherboard network bluetooth \
+           lighting "lighting sync" "lighting restore" \
            session "session start" "session stop" "session status" "session list" "session show" "session export"; do
     # shellcheck disable=SC2086  # word-splitting the subcommand is intended
     "$rd" $cmd --help >/dev/null || fail "rigdeck $cmd --help failed"

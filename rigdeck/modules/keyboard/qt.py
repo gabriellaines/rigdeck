@@ -110,6 +110,11 @@ class KeyboardBackend(QObject):
                 out.setdefault(name, {})["color"] = li["keys"].get(name, li["base"])
         return out
 
+    @Slot()
+    def lightingChangedElsewhere(self):
+        """Colours were changed outside this page (Lighting sync): show them."""
+        self.analogChanged.emit()
+
     @Slot(int, result="QVariant")
     def lightingFor(self, n):
         return custom_lighting(n)
