@@ -33,9 +33,9 @@ jobs:
         env:
           RIGDECK_REQUIRE_QML: "1"
 
-  # A pull request into main is a release: its version must be new.
-  release-ready:
-    name: Version is new
+  # A pull request into main is a release: say which version merging it publishes.
+  release-preview:
+    name: Release preview
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +45,7 @@ jobs:
       - run: |
           v=$(scripts/version.sh)
           if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
-            echo "::error::v$v is already released. On develop run scripts/bump-version.sh <new version>, commit and push."
-            exit 1
+            echo "::notice::Merging this publishes a $(scripts/release-level.sh) release after v$v (version bumped automatically)"
+          else
+            echo "::notice::Merging this publishes v$v"
           fi
-          echo "Merging this publishes v$v"

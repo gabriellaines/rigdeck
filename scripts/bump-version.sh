@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare a release on `develop`:  scripts/bump-version.sh 0.3.1
+# Prepare a release on `develop`:  scripts/bump-version.sh 0.3.1   (or patch / minor / major)
 #
 # Sets the version in rigdeck/__init__.py and the PKGBUILD, and writes the CHANGELOG section
 # "X.Y.Z — today" from the commits' "Changelog: …" lines plus anything written by hand under
@@ -9,8 +9,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 new=${1:-}
-[[ $new =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: $0 X.Y.Z" >&2; exit 2; }
 old=$(scripts/version.sh)
+IFS=. read -r major minor patch <<<"$old"
+case $new in
+    patch) new=$major.$minor.$((patch + 1)) ;;
+    minor) new=$major.$((minor + 1)).0 ;;
+    major) new=$((major + 1)).0.0 ;;
+esac
+[[ $new =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: $0 X.Y.Z | patch | minor | major" >&2; exit 2; }
 [ "$new" != "$old" ] || { echo "already at $new" >&2; exit 1; }
 if [ "$(printf '%s\n%s\n' "$old" "$new" | sort -V | tail -1)" != "$new" ]; then
     echo "$new is not newer than $old" >&2; exit 1
@@ -45,4 +51,4 @@ sed 's/^/    /' <<<"$notes"
 echo
 echo "Edit CHANGELOG.md if you want to reword them, then:"
 echo "  git commit -am \"v$new\" && git push origin develop"
-echo "  open a pull request develop → main; merging it publishes the release"
+echo "  open a pull request develop → main; merging it publishes v$new as it is"
