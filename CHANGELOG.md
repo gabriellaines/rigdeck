@@ -1,10 +1,9 @@
 # Changelog
 
-Release notes are collected automatically: every commit with a user-visible change ends with a
-`Changelog: …` line, and `scripts/bump-version.sh` (run by the release workflow) gathers those lines (plus anything
-written by hand under **Unreleased**) into the new version's section. Preview the next release's
-notes with `scripts/unreleased.sh`. The text becomes the GitHub release notes, which RigDeck shows
-in its update dialog — write for users, not developers.
+Written automatically when a release is published: each commit's `Changelog: …` lines, or its
+summary line when it has none (internal-only commits are left out), plus anything written by hand
+under **Unreleased**. Preview the next release's notes with `scripts/unreleased.sh`. The text
+becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
 

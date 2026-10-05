@@ -7,15 +7,16 @@ short version.
 ## The flow at a glance
 
 ```
-feature work ──► develop ──(CI)──► pull request develop → main ──(CI + version check)──► merge
-                                                                                          │
-         app users get "Update available" ◄── GitHub release vX.Y.Z ◄── release.yml ◄────┘
+feature work ──► develop ──(CI)──► pull request develop → main ──(CI)──► merge
+                                                                           │
+  app users get "Update available" ◄── GitHub release vX.Y.Z ◄── release.yml: version,
+                                                                 changelog, tag (automatic)
 ```
 
 | Branch | What it holds | Who writes to it |
 |---|---|---|
 | `develop` | Work in progress. Every push runs CI. | Commits (directly, or via short-lived feature branches merged into it) |
-| `main` | Exactly the latest release. Never committed to directly. | Only pull requests from `develop` |
+| `main` | Exactly the latest release. Never committed to directly. | Only pull requests from `develop` (and the release workflow's `vX.Y.Z` commit) |
 
 Every merge into `main` **becomes a public release**, and everyone
 running RigDeck is offered the update. Treat a merge into `main` as shipping.
@@ -48,7 +49,7 @@ rm -rf build rigdeck.egg-info && ~/.local/share/rigdeck/venv/bin/pip install -q 
   how modules are structured).
 - **New QML, icon or other data files** must be covered by `[tool.setuptools.package-data]` in
   `pyproject.toml`, or they're missing from installs. `scripts/check.sh` catches this.
-- Never bump the version by hand while working; that happens only at release time (step 5).
+- Never bump the version or edit release sections of `CHANGELOG.md`; the release does that (step 5).
 
 ## 3. Commit
 
@@ -62,31 +63,35 @@ Optional body for developers: what changed and why, technical details.
 Changelog: One plain sentence for users describing what they will notice
 ```
 
-### The `Changelog:` line — this is how release notes are made
+### Release notes and versions are automatic
 
-There is no hand-maintained changelog. At release time, `scripts/bump-version.sh` collects every
-`Changelog:` line since the last release into `CHANGELOG.md`, and that text becomes the GitHub
-release notes, **shown to users in the app's update dialog**.
+There is no hand-maintained changelog and no version to bump. When `develop` is merged into
+`main`, the release workflow writes the notes from the commits since the last release, **shown to
+users in the app's update dialog**:
 
-- **Add one** to every commit that changes something a user can notice: a feature, a fix, a
-  visible UI change, installer behavior.
-- **Add several** if the commit has several user-visible effects (one `Changelog:` line each).
-- **Add none** to internal commits: refactors, CI, tests, developer docs.
-- Write for someone who doesn't code: what they'll see or can now do, not how it was built.
+- a commit's `Changelog:` lines, if it has any — the best notes, written for users;
+- otherwise its **summary line** — so write summaries a user would understand;
+- nothing for commits that only touch internal files (`.github/`, `scripts/`, `tests/`, `docs/`,
+  Markdown files).
+
+`Changelog:` lines are optional but recommended when the summary is technical. Write for someone
+who doesn't code: what they'll see or can now do, not how it was built. Several user-visible
+effects → several lines.
 
 | ✅ Good | ❌ Bad |
 |---|---|
 | `Changelog: GPU fans can now stay on when the card is cool (Zero RPM off)` | `Changelog: add zero_rpm to pmfw dict in set_fan` |
 | `Changelog: The power-limit slider now shows the current limit when the page opens` | `Changelog: fix signal emission order in _got()` |
-| `Changelog: Install with one line, no git needed` | `Changelog: misc fixes` |
 
-Forgot one? Before pushing, `git commit --amend` adds it. After pushing, write the sentence under
-`## Unreleased` in `CHANGELOG.md` instead; hand-written text there is included too.
+The version goes up by a **patch** (0.7.1 → 0.7.2), or a **minor** (0.7.1 → 0.8.0) when a new
+hardware module (`rigdeck/modules/<name>/`) was added. To override, give any commit a
+`Release: minor` or `Release: major` trailer.
 
-Preview the next release's notes at any time:
+Preview the next release at any time:
 
 ```sh
-scripts/unreleased.sh
+scripts/unreleased.sh       # the notes
+scripts/release-level.sh    # patch, minor or major
 ```
 
 ### Other commit rules
@@ -110,47 +115,27 @@ doing anything else.
 
 ## 5. Release
 
-Every merge into `main` is a release; there's nothing to bump by hand. When `develop` has
-something worth shipping and CI is green:
+Open a **pull request `develop → main`** on GitHub (its *Release preview* check says which version
+it will publish) and, once CI is green, **merge it with a merge commit** (not squash or rebase —
+that would make old release notes reappear). That's all. The Release workflow then:
 
-```sh
-scripts/unreleased.sh       # read the notes users will see; reword under "## Unreleased" if needed
-scripts/release-level.sh    # patch, minor or major: what the version bump will be
-```
+1. runs the checks again,
+2. picks the next version and writes its section in `CHANGELOG.md` (see *Release notes and
+   versions are automatic*), commits `vX.Y.Z` to `main`,
+3. tags and publishes the GitHub release, which the app offers as an update,
+4. merges `main` back into `develop`, so run `git pull` there afterwards.
 
-Then on GitHub: **open a pull request `develop → main`** (its *Release preview* check says which
-version it will publish) and, once CI is green, **merge it with a merge commit** (not squash or
-rebase — that would make old release notes reappear). The Release workflow runs the checks again,
-bumps the version, writes `CHANGELOG.md`, commits `vX.Y.Z` to `main`, tags and publishes the
-release, and merges `main` back into `develop` so both have the new version. Run `git pull` on
-`develop` afterwards.
+A merge with only internal commits still releases, with the note "Small internal improvements".
 
-**Choosing the version** (`MAJOR.MINOR.PATCH`): the workflow bumps `PATCH` unless a commit since
-the last release asks for more with a trailer next to its `Changelog:` lines:
-
-```
-Changelog: New supported mouse: Example M1
-Release: minor
-```
-
-- `PATCH` (0.3.0 → 0.3.1): fixes and small improvements. The default; no trailer needed.
-- `MINOR` (0.3.1 → 0.4.0): new features or new supported hardware — `Release: minor`.
-- `MAJOR`: reserved for 1.0 and later breaking changes (config format, removed commands) —
-  `Release: major`.
-
-A release with only internal commits still goes out, with the note "Small internal improvements".
-
-**A specific version** (e.g. jumping to 1.0.0): on `develop` run `scripts/bump-version.sh X.Y.Z`
-(or `patch` / `minor` / `major`), check `git diff`, `git commit -am "vX.Y.Z"` (no Changelog line),
-push, and merge as above. A version that has no tag yet is published as it is, without another
-bump.
+**A specific version** (e.g. 1.0.0): on `develop` run `scripts/bump-version.sh 1.0.0`, commit
+`v1.0.0` and merge as above; a version with no tag yet is published as it is.
 
 The workflow pushes to `main` and `develop` with its own token, so those branches must allow
 GitHub Actions to push (no branch protection rule that blocks it).
 
 ### Urgent fixes
 
-Same path, just faster: fix on `develop` (with a `Changelog:` line), pull request, merge. There is
+Same path, just faster: fix on `develop`, pull request, merge. There is
 no separate hotfix branch, so `main` never drifts from `develop`.
 
 ## When something goes wrong
@@ -169,13 +154,13 @@ When working on this repository:
 
 1. Work on `develop` (`git switch develop`). Never commit to or push `main`; it changes only by
    merging a pull request on GitHub, which the maintainer does.
-2. Every commit with a user-visible change ends with `Changelog:` line(s): plain sentences for
-   end users. Internal commits get none. Check with `scripts/unreleased.sh`.
+2. Write commit summaries a user would understand, and add `Changelog:` line(s) (plain sentences
+   for end users) to commits with user-visible changes; they become the release notes. Internal
+   commits get none. Check with `scripts/unreleased.sh`.
 3. No AI attribution in commits or pull requests.
 4. Run `scripts/check.sh` before committing; don't push with failing checks.
-5. Don't edit the version by hand; the release workflow bumps it. Run `scripts/bump-version.sh`
-   only when the maintainer asks for a specific version. A commit that adds a feature or new
-   hardware support also gets a `Release: minor` trailer.
+5. Don't edit the version or `CHANGELOG.md` releases by hand; the release workflow does both. Run
+   `scripts/bump-version.sh` only when the maintainer asks for a specific version.
 6. Before asking the maintainer to try a GUI change in the app, reinstall into
    `~/.local/share/rigdeck/venv` (step 1), or they'll be looking at the old version.
 7. New data files (QML, icons) → `package-data` in `pyproject.toml`.

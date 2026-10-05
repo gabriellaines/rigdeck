@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Prepare a release on `develop`:  scripts/bump-version.sh 0.3.1   (or patch / minor / major)
+# Set the next version:  scripts/bump-version.sh 0.3.1   (or patch / minor / major)
 #
-# Sets the version in rigdeck/__init__.py and the PKGBUILD, and writes the CHANGELOG section
-# "X.Y.Z — today" from the commits' "Changelog: …" lines plus anything written by hand under
-# "Unreleased" (see scripts/unreleased.sh). Review/edit CHANGELOG.md before committing.
-# Then commit, and merge develop into main: the Release workflow publishes it.
+# The Release workflow runs this on every merge into main; run it by hand on `develop` only to pick
+# a specific version. Sets the version in rigdeck/__init__.py and the PKGBUILD, and writes the
+# CHANGELOG section "X.Y.Z — today" from scripts/unreleased.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,8 +24,8 @@ fi
 # These become the release notes, so there must be some.
 notes=$(scripts/unreleased.sh)
 if [ -z "$notes" ]; then
-    echo "Nothing to release notes from: no 'Changelog:' lines in the commits since the last release," >&2
-    echo "and nothing under '## Unreleased' in CHANGELOG.md. Write the notes there, then run this again." >&2
+    echo "No release notes: no user-visible commits since the last release, and nothing under" >&2
+    echo "'## Unreleased' in CHANGELOG.md. Write the notes there, then run this again." >&2
     exit 1
 fi
 
