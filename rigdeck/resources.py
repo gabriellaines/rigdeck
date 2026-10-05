@@ -133,6 +133,21 @@ def _netstats(dev: str) -> tuple[int, int]:
     return _int(f"{s}/rx_bytes") or 0, _int(f"{s}/tx_bytes") or 0
 
 
+def system_activity() -> dict:
+    """Processes, threads and seconds since boot, like Task Manager's CPU stats."""
+    try:
+        procs = sum(1 for d in os.listdir("/proc") if d.isdigit())
+    except OSError:
+        procs = 0
+    loadavg = _read("/proc/loadavg").split()          # "0.18 0.32 0.46 1/2164 38375"
+    threads = int(loadavg[3].split("/")[1]) if len(loadavg) > 3 and "/" in loadavg[3] else 0
+    try:
+        uptime = int(float(_read("/proc/uptime").split()[0]))
+    except (ValueError, IndexError):
+        uptime = 0
+    return {"processes": procs, "threads": threads, "uptime": uptime}
+
+
 class Sampler:
     """Call sample() periodically; each call returns usage since the previous one."""
 
@@ -151,7 +166,7 @@ class Sampler:
         loads = self.load.sample()
         freqs = hwinfo.cpu_freqs_mhz()
         cpu = {"total": loads.get("cpu", 0), "cores": [loads.get(f"cpu{i}", 0) for i in range(len(freqs))],
-               "mhz": freqs}
+               "mhz": freqs, **system_activity()}
 
         disks = []
         stats = _diskstats()
