@@ -1,5 +1,8 @@
-# Every push to main whose version has no tag yet becomes a GitHub release
-# (tag vX.Y.Z, notes from CHANGELOG.md). The app's updater picks it up from there.
+# Every push to main becomes a GitHub release (tag vX.Y.Z, notes from CHANGELOG.md); the app's
+# updater picks it up from there. A version bumped by hand on develop is published as it is.
+# Otherwise this bumps it here — patch, or minor / major when a commit since the last release has a
+# "Release: minor" / "Release: major" trailer — commits "vX.Y.Z" to main and merges main back into
+# develop. (Pushes made with the workflow's token don't start workflows, so this can't loop.)
 name: Release
 
 on:
@@ -31,21 +34,46 @@ jobs:
       - name: Version
         id: v
         run: |
-          v=$(scripts/version.sh)
-          echo "version=$v" >> "$GITHUB_OUTPUT"
-          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
-            echo "::notice::v$v already released; nothing to publish (bump the version to release)"
-            echo "new=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "new=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git tag --points-at HEAD 'v*')" ]; then   # e.g. re-run after a successful release
+            echo "::notice::$(git tag --points-at HEAD 'v*') is already this commit; nothing to publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          v=$(scripts/version.sh)
+          if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            level=$(scripts/release-level.sh)
+            if [ -z "$(scripts/unreleased.sh)" ]; then   # internal changes only: still a release
+              sed -i 's/^## Unreleased$/&\n\n- Small internal improvements/' CHANGELOG.md
+            fi
+            scripts/bump-version.sh "$level"
+            v=$(scripts/version.sh)
+            git commit -qam "v$v"
+            git push origin HEAD:main
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$v ($level bump, made by this workflow)"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Publish v${{ steps.v.outputs.version }}
-        if: steps.v.outputs.new == 'true'
+        if: steps.v.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.v.outputs.version }}
         run: |
           scripts/release-notes.sh "$V" > notes.md
-          gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md --latest
+          gh release create "v$V" --target "$(git rev-parse HEAD)" --title "v$V" --notes-file notes.md --latest
           echo "::notice::Published https://github.com/${{ github.repository }}/releases/tag/v$V"
+
+      - name: Bring the version bump back to develop
+        if: steps.v.outputs.bumped == 'true'
+        run: |
+          release=$(git rev-parse HEAD)
+          git fetch -q origin develop
+          git switch -q -c develop-sync FETCH_HEAD
+          if git merge -q --no-edit -m "Merge v${{ steps.v.outputs.version }} back into develop" "$release" \
+             && git push origin HEAD:develop; then
+            echo "::notice::develop now has v${{ steps.v.outputs.version }}"
+          else
+            echo "::warning::Couldn't merge main back into develop; run 'git switch develop && git merge origin/main' and push"
+          fi

@@ -8,6 +8,7 @@ PageScroll {
     id: page
     property bool shown: true
     property string selected: "cpu"
+    property bool logical: false        // CPU chart: one graph per logical processor instead of the total
     readonly property var h: usage.history
     readonly property var n: usage.now
     readonly property var sp: usage.specs
@@ -20,6 +21,11 @@ PageScroll {
         let i = 0, x = v
         while (x >= 1000 && i < 3) { x /= 1000; i++ }
         return (i === 0 ? Math.round(x) : x.toFixed(1)) + " " + u[i]
+    }
+    function uptime(sec) {       // 93784 -> "1:02:03:04" (days:hours:minutes:seconds, like Task Manager)
+        if (!sec) return "—"
+        const p = v => String(v).padStart(2, "0")
+        return Math.floor(sec / 86400) + ":" + p(Math.floor(sec / 3600) % 24) + ":" + p(Math.floor(sec / 60) % 60) + ":" + p(sec % 60)
     }
     function gpuName(card) {
         const g = gpuInfo.find(g => card.endsWith("/" + g.card))
@@ -100,12 +106,60 @@ PageScroll {
                       : (page.sel.key || "").startsWith("disk:") ? "Active time (share of the second the disk was busy)"
                       : (page.sel.key || "").startsWith("net:") ? "Download (filled) and upload (line)"
                       : "Graphics engine busy"
+            Segmented {
+                visible: page.sel.key === "cpu"
+                Layout.fillWidth: true
+                model: ["Overall utilization", "Logical processors"]
+                currentIndex: page.logical ? 1 : 0
+                onActivated: (ix) => page.logical = ix === 1
+            }
             HistoryChart {
+                visible: !(page.sel.key === "cpu" && page.logical)
                 Layout.fillWidth: true
                 implicitHeight: 260
                 values: page.sel.values || []; values2: page.sel.values2 || []
                 maxValue: page.sel.max === undefined ? 100 : page.sel.max
                 length: usage.historyLength
+            }
+            // one small graph per logical processor, laid out in the space of the big chart
+            GridLayout {
+                id: threads
+                visible: page.sel.key === "cpu" && page.logical
+                Layout.fillWidth: true
+                readonly property int count: (page.h.cores || []).length
+                // the column count (preferring one that divides evenly) whose cells come closest
+                // to a 16:10 shape inside the 260 px the overall chart uses
+                columns: {
+                    if (count < 2 || width <= 0) return Math.max(1, count)
+                    let best = 1, bestScore = Infinity
+                    for (let c = 1; c <= count; c++) {
+                        const r = Math.ceil(count / c)
+                        const score = Math.abs(Math.log((width / c) / (260 / r) / 1.6)) + (count % c ? 0.35 : 0)
+                        if (score < bestScore) { bestScore = score; best = c }
+                    }
+                    return best
+                }
+                readonly property int rows: Math.ceil(count / Math.max(1, columns))
+                columnSpacing: 6; rowSpacing: 6; uniformCellWidths: true
+                Repeater {
+                    model: threads.visible ? threads.count : 0
+                    HistoryChart {
+                        required property int index
+                        readonly property var cpu: page.n.cpu || ({})
+                        Layout.fillWidth: true
+                        implicitHeight: Math.max(40, (260 - threads.rowSpacing * (threads.rows - 1)) / threads.rows)
+                        grid: false
+                        values: page.h.cores[index] || []
+                        length: usage.historyLength
+                        Label {
+                            x: 5; y: 3
+                            width: parent.width - 10
+                            text: "CPU " + parent.index + "  " + ((parent.cpu.cores || [])[parent.index] || 0) + "%"
+                                  + (parent.width >= 110 ? "  " + (((parent.cpu.mhz || [])[parent.index] || 0) / 1000).toFixed(1) + " GHz" : "")
+                            color: theme.muted; font.pixelSize: 10; elide: Text.ElideRight
+                        }
+                    }
+                }
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -134,6 +188,16 @@ PageScroll {
                              value: page.sp.cores || "—"; detail: (page.sp.threads || 0) + " logical processors" }
                 MetricCard { visible: parent.k === "cpu"; Layout.fillWidth: true; icon: "thermometer"; label: "Temperature"
                              value: system.live.cpuTemp !== null && system.live.cpuTemp !== undefined ? Math.round(system.live.cpuTemp) : "—"; unit: "°C" }
+                MetricCard { visible: parent.k === "cpu"; Layout.fillWidth: true; icon: "layout-grid"; label: "Processes"
+                             value: page.n.cpu ? page.n.cpu.processes : "—"; detail: page.n.cpu ? page.n.cpu.threads + " threads" : "" }
+                MetricCard { visible: parent.k === "cpu"; Layout.fillWidth: true; icon: "activity"; label: "Up time"
+                             value: page.n.cpu ? page.uptime(page.n.cpu.uptime) : "—"; detail: "days:hours:minutes:seconds" }
+                MetricCard { visible: parent.k === "cpu"; Layout.fillWidth: true; icon: "zap"; label: "Max boost"
+                             value: page.sp.maxMhz ? (page.sp.maxMhz / 1000).toFixed(2) : "—"; unit: "GHz"
+                             detail: page.sp.boost === false ? "Boost is off" : "Boost on" }
+                MetricCard { visible: parent.k === "cpu"; Layout.fillWidth: true; icon: "box"; label: "Virtualization"
+                             value: page.sp.virtualization ? (page.sp.virtualizationEnabled ? "Enabled" : "Disabled") : "None"
+                             detail: page.sp.virtualization ? page.sp.virtualization + (page.sp.virtualizationEnabled ? "" : " · off in the BIOS") : "Not supported" }
                 // Memory
                 MetricCard { visible: parent.k === "memory"; Layout.fillWidth: true; icon: "memory-stick"; label: "In use"
                              value: page.gib(parent.mem.used); unit: "GiB"; detail: "of " + page.gib(parent.mem.total) + " GiB" }
@@ -164,6 +228,18 @@ PageScroll {
                 MetricCard { visible: !!parent.gpu; Layout.fillWidth: true; icon: "memory-stick"; label: "Video memory"
                              value: parent.gpu ? page.gib(parent.gpu.vramUsed) : "—"; unit: "GiB"
                              detail: parent.gpu ? "of " + page.gib(parent.gpu.vramTotal) + " GiB" : "" }
+            }
+
+            // CPU: caches, like the spec list under Task Manager's stats
+            Repeater {
+                model: LiveModel { values: page.sel.key === "cpu" ? (page.sp.caches || []) : [] }
+                KeyValue {
+                    readonly property real kib: modelData.size * modelData.instances / 1024
+                    key: "L" + modelData.level + " cache" + (modelData.type === "Unified" ? "" : " (" + modelData.type.toLowerCase() + ")")
+                    value: (kib >= 1024 ? (kib / 1024) + " MiB" : kib + " KiB")
+                           + (modelData.instances > 1 ? " · " + modelData.instances + " × " + (modelData.size >= 1048576
+                              ? modelData.size / 1048576 + " MiB" : modelData.size / 1024 + " KiB") : "")
+                }
             }
         }
     }

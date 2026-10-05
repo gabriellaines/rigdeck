@@ -1,12 +1,16 @@
 # Changelog
 
-Release notes are collected automatically: every commit with a user-visible change ends with a
-`Changelog: …` line, and `scripts/bump-version.sh X.Y.Z` gathers those lines (plus anything
-written by hand under **Unreleased**) into the new version's section. Preview the next release's
-notes with `scripts/unreleased.sh`. The text becomes the GitHub release notes, which RigDeck shows
-in its update dialog — write for users, not developers.
+Written automatically when a release is published: each commit's `Changelog: …` lines, or its
+summary line when it has none (internal-only commits are left out), plus anything written by hand
+under **Unreleased**. Preview the next release's notes with `scripts/unreleased.sh`. The text
+becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
+
+## 0.7.1 — 2026-10-05
+
+- Resources > CPU can now show a separate graph for each logical processor, like Task Manager
+- Resources > CPU now shows running processes and threads, up time, max boost clock, virtualization and cache sizes
 
 ## 0.7.0 — 2026-10-03
 
