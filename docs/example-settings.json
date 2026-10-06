@@ -1,0 +1,42 @@
+{
+  "rigdeck": 1,
+  "cooler": {
+    "fan": "custom",
+    "pump": "balanced",
+    "curve": [[30, 1000], [50, 1400], [65, 1900], [80, 2500]],
+    "lighting": {"effect": "static", "color": "00c8ff", "brightness": 80}
+  },
+  "motherboard": {
+    "lighting": {"all": {"effect": "static", "color": "00c8ff"}}
+  },
+  "keyboard": {
+    "brightness": 50,
+    "profiles": {
+      "1": {
+        "actuation": 1.2,
+        "rapidTrigger": 0.3,
+        "keys": {"W": {"actuation": 0.8}, "Space": {"rapidTrigger": "off"}},
+        "color": "00c8ff",
+        "keyColors": {"W": "ff0000", "A": "ff0000", "S": "ff0000", "D": "ff0000"}
+      }
+    }
+  },
+  "mice": [
+    {
+      "model": "Attack Shark X11 Ultra",
+      "pollingRate": 4000,
+      "dpi": [800, 1600, 3200],
+      "stage": 1,
+      "stageColors": ["ff0000", "00ff40", "0040ff"],
+      "light": {"effect": "steady", "brightness": 6},
+      "motionSync": true,
+      "angleSnapping": false,
+      "rippleControl": false,
+      "liftOff": 1,
+      "debounce": 4,
+      "sensorMode": "high performance",
+      "fps20k": true
+    }
+  ],
+  "headset": {"sidetone": 32, "autoOffMinutes": 30}
+}
