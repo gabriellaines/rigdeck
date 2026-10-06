@@ -7,6 +7,7 @@ from .gamemon import GameMonitorModule
 from .gpu import GpuModule
 from .headset import HeadsetModule
 from .keyboard import KeyboardModule
+from .lighting import LightingModule
 from .monitor import MonitorModule
 from .motherboard import MotherboardModule
 from .mouse import MouseModule
@@ -16,7 +17,7 @@ from .system import MemoryModule, ProcessorModule, ResourcesModule, StorageModul
 from .waterforce import WaterforceModule
 
 MODULES: list[Module] = [ResourcesModule(), GameMonitorModule(), WaterforceModule(), GpuModule(), ProcessorModule(), MemoryModule(),
-                         StorageModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
+                         StorageModule(), LightingModule(), HeadsetModule(), KeyboardModule(), MouseModule(), WebcamModule(),
                          MonitorModule(), MotherboardModule(),
                          NetworkModule(), BluetoothModule()]
 

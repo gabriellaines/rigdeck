@@ -214,6 +214,14 @@ class CoolerBackend(QObject):
 
     led = Property("QVariantMap", lambda self: self._led, notify=ledChanged)
 
+    @Slot()
+    def reloadLed(self):
+        """The lighting was changed outside this page (Lighting sync): show the saved settings."""
+        self._led = dict(effects.DEFAULTS)
+        self._led.update({k: v for k, v in config.section(config.load(), "cooler", "led").items()
+                          if k in effects.DEFAULTS})
+        self.ledChanged.emit()
+
     @Slot(str, str, int, int)
     def setLed(self, effect, color, brightness, speed):
         self._led = {"effect": effect, "color": color.lstrip("#").lower()[:6] or "ffffff",

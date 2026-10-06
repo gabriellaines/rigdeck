@@ -1,6 +1,8 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import RigDeck
 
 PageScroll {
@@ -9,6 +11,7 @@ PageScroll {
     readonly property var u: appState.update
 
     PageHeader { title: "Settings"; subtitle: "RigDeck " + appState.version }
+    Connections { target: settingsFile; function onToast(m) { root.showToast(m) } }
 
     Panel {
         Layout.fillWidth: true
@@ -131,9 +134,79 @@ PageScroll {
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: "Check for updates when RigDeck starts"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                Label { text: "Check for updates automatically"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+                Label { text: "When RigDeck starts and every few hours; the top bar shows when a new version is out"
+                        color: theme.muted; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            }
             Toggle { checked: appState.checkUpdatesOnStart; onToggled: appState.checkUpdatesOnStart = checked
-                     Accessible.name: "Check for updates when RigDeck starts" }
+                     Accessible.name: "Check for updates automatically" }
+        }
+    }
+
+    Panel {
+        Layout.fillWidth: true
+        title: "Settings file"
+        subtitle: "All your device settings in one file: export a backup, or import one to set everything at once"
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Button {
+                text: "Import settings file…"
+                highlighted: true
+                icon.source: "image://icons/upload/ffffff"
+                enabled: settingsFile.busy === ""
+                onClicked: openDialog.open()
+            }
+            Button {
+                text: "Export current settings…"
+                icon.source: "image://icons/download/" + theme.text.toString().slice(-6)
+                enabled: settingsFile.busy === ""
+                onClicked: saveDialog.open()
+            }
+            BusyIndicator { running: settingsFile.busy !== ""; visible: running; implicitWidth: 28; implicitHeight: 28 }
+            Label { text: settingsFile.busy; color: theme.muted; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+        }
+        ColumnLayout {
+            visible: settingsFile.results.length > 0
+            Layout.fillWidth: true
+            spacing: 6
+            Label { text: settingsFile.file; color: theme.muted; font.pixelSize: 12 }
+            Repeater {
+                model: LiveModel { values: settingsFile.results }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Icon { name: modelData.ok ? "check" : "circle-alert"; size: 16
+                           color: modelData.ok ? theme.live : theme.warning; Layout.alignment: Qt.AlignTop }
+                    Label {
+                        text: "<b>" + modelData.title + "</b> — " + modelData.message
+                        textFormat: Text.StyledText
+                        color: theme.text; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    }
+                }
+            }
+        }
+        ActionLink {
+            label: "How to write a settings file"
+            onClicked: appState.openUrl(appState.repoUrl + "/blob/main/docs/settings-file.md")
+        }
+        FileDialog {
+            id: openDialog
+            title: "Import a RigDeck settings file"
+            nameFilters: ["Settings files (*.json)", "All files (*)"]
+            onAccepted: settingsFile.importFile(selectedFile.toString())
+        }
+        FileDialog {
+            id: saveDialog
+            title: "Export your settings"
+            fileMode: FileDialog.SaveFile
+            defaultSuffix: "json"
+            currentFile: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/rigdeck-settings.json"
+            nameFilters: ["Settings files (*.json)"]
+            onAccepted: settingsFile.exportFile(selectedFile.toString())
         }
     }
 

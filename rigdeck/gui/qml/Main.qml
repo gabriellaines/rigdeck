@@ -40,7 +40,7 @@ ApplicationWindow {
     readonly property var placement: ({ overview: ["", 0], resources: ["Monitoring", 0], gamemon: ["Monitoring", 1],
         cpu: ["Hardware", 0], gpu: ["Hardware", 1], memory: ["Hardware", 2], storage: ["Hardware", 3],
         motherboard: ["Hardware", 4], cooler: ["Hardware", 5], network: ["Hardware", 6], bluetooth: ["Hardware", 7],
-        keyboard: ["Devices", 0], mouse: ["Devices", 1], headset: ["Devices", 2], monitor: ["Devices", 3],
+        lighting: ["Devices", -1], keyboard: ["Devices", 0], mouse: ["Devices", 1], headset: ["Devices", 2], monitor: ["Devices", 3],
         webcam: ["Devices", 4] })
     function sectionOf(p) { return (placement[p.id] || [p.kind === "peripheral" ? "Devices" : "Hardware", 99])[0] }
     function rankOf(p) { return sectionOrder.indexOf(sectionOf(p)) * 100 + (placement[p.id] || ["", 99])[1] }
@@ -92,12 +92,21 @@ ApplicationWindow {
                 Label { text: "RigDeck"; color: theme.text; font.pixelSize: 14; font.weight: Font.DemiBold }
                 Label { text: "Hardware Control Center"; color: theme.muted; font.pixelSize: 12; visible: !root.compact }
                 Item { Layout.fillWidth: true }
-                Chip {
-                    visible: appState.update.state === "available"
-                    label: "Update available — " + appState.update.latest
-                    checkable: false
-                    hoverEnabled: true
-                    focusPolicy: Qt.StrongFocus
+                // a new version: shown next to the theme switch until it's installed; opens Settings → Updates
+                Button {
+                    readonly property string st: appState.update.state
+                    visible: st === "available" || st === "updating" || st === "updated"
+                    highlighted: true
+                    implicitHeight: 30
+                    text: st === "updated" ? "Restart to finish updating"
+                        : st === "updating" ? "Updating…"
+                        : root.compact ? "Update " + appState.update.latest
+                        : "New version " + appState.update.latest + " available"
+                    icon.source: "image://icons/" + (st === "updated" ? "rotate-cw" : "download") + "/"
+                                 + "ffffff"
+                    ToolTip.visible: hovered
+                    ToolTip.text: st === "updated" ? "Open Settings to restart RigDeck"
+                                                   : "You have " + appState.version + ". Open Settings to update."
                     onClicked: root.navigate("settings")
                 }
                 IconButton {

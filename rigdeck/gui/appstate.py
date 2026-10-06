@@ -22,6 +22,9 @@ def save_pref(key: str, value):
     config.save(cfg)
 
 
+UPDATE_CHECK_MS = 6 * 3600 * 1000
+
+
 class AppState(QObject):
     navChanged = Signal()
     serviceChanged = Signal()
@@ -44,6 +47,9 @@ class AppState(QObject):
         self.refreshService()
         if self._check_updates:
             QTimer.singleShot(1500, lambda: self.checkUpdates(True))
+        # RigDeck often stays open for days: look again now and then, so the top bar can say so
+        self._update_timer = QTimer(self, interval=UPDATE_CHECK_MS, timeout=self._recheck)
+        self._update_timer.start()
 
     @Slot(bool, str)
     def setView(self, visible, page):
@@ -114,9 +120,14 @@ class AppState(QObject):
         self._update = {**self._update, **kw}
         self.updateChanged.emit()
 
+    def _recheck(self):
+        if self._check_updates and self._update["state"] in ("idle", "current", "available", "error"):
+            self.checkUpdates(True)
+
     @Slot()
     def checkUpdates(self, quiet: bool = False):
-        self._set_update(state="checking", error="")
+        if not (quiet and self._update["state"] == "available"):   # keep the top-bar button meanwhile
+            self._set_update(state="checking", error="")
 
         def done(rel):
             self._release = rel
@@ -124,7 +135,10 @@ class AppState(QObject):
                              url=rel["url"] or "", notes=rel["notes"], method=rel["method"])
 
         def failed(e):
-            self._set_update(state="error" if not quiet else "idle", error=str(e))
+            if quiet:      # offline now and then is normal: keep what we knew
+                self._set_update(state=self._update["state"] if self._update["state"] == "available" else "idle")
+            else:
+                self._set_update(state="error", error=str(e))
         run_async(updater.check, done, failed)
 
     @Slot()

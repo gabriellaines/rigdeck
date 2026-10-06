@@ -22,6 +22,8 @@ the only way to control some hardware.
 | Headsets supported by [HeadsetControl](https://github.com/Sapd/HeadsetControl) (HyperX, SteelSeries, Logitech, Corsair…): battery, sidetone, auto power-off, lights | ✅ (needs HeadsetControl) |
 | Wireless mice: **Pulsar Xlite V3**, **Attack Shark X11 Ultra** (Compx 3554): battery, DPI stages, polling rate up to 8K, motion sync, angle snapping, ripple control, light | ✅ |
 | Attack Shark X11 Ultra sensor settings: competitive mode, LP/HP sensor mode, 20K FPS scan, lift-off distance, angle tuning, debounce | ✅ |
+| **Lighting sync** (like SignalRGB): one colour on the cooler, motherboard, keyboard and mice at once, and back to each one's own lighting | ✅ |
+| **Settings files**: every device's settings (DPI, polling rate, sensor, colours, fan curve, key actuation…) in one JSON file — [export, edit, import](docs/settings-file.md) | ✅ |
 | Logitech G **PRO X TKL RAPID** keyboard: lighting brightness (actuation / Rapid Trigger: [not decoded yet](docs/protocols/logitech-pro-x-tkl-rapid.md)) | 🧪 partial |
 | Monitors over DDC/CI (via [ddcutil](https://www.ddcutil.com)): brightness (one or all), contrast, color preset, input, volume | ✅ (needs ddcutil) |
 | Network: Ethernet and Wi-Fi adapters, addresses, live traffic, nearby networks (NetworkManager) | ✅ |
@@ -108,6 +110,10 @@ rigdeck session start --name "CS2 high"        # game monitor: record while you 
 rigdeck session stop                           # save it; `session list` / `show ID` / `export ID file.csv`
 rigdeck motherboard                            # board, BIOS, temperatures, fan headers
 rigdeck motherboard lighting static 00c8ff     # ASUS Aura board lighting (--zone board|argb1|all)
+rigdeck lighting sync 00c8ff                   # one colour on every device with lighting
+rigdeck lighting restore                       # each device back to its own lighting
+rigdeck export my-setup.json                   # every device's settings to a file (docs/settings-file.md)
+rigdeck import my-setup.json                   # …and back, all at once (--check: only check the file)
 rigdeck monitor status                         # every monitor's controls
 rigdeck network                                # Ethernet, Wi-Fi and Bluetooth status
 rigdeck bluetooth                              # adapters and your Bluetooth devices

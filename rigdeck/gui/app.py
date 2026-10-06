@@ -15,6 +15,7 @@ from . import bridge
 from .appstate import AppState, prefs
 from .bluez import BluezWatcher
 from .resources import ResourceMonitor
+from .setupfile import SettingsFile
 from .icons import IconProvider
 from .system import SystemBackend
 from .theme import Theme
@@ -91,6 +92,9 @@ def run(argv: list[str]) -> int:
     state = AppState(theme, nav, peripherals + [bluez])
     keep.append(state)
     ctx.setContextProperty("appState", state)
+    settings_file = SettingsFile(ctx)        # import / export every device's settings
+    keep.append(settings_file)
+    ctx.setContextProperty("settingsFile", settings_file)
     ctx.setContextProperty("startPage", start_page)
 
     engine.load(QUrl.fromLocalFile(os.path.join(QML_DIR, "Main.qml")))
