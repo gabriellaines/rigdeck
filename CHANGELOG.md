@@ -7,6 +7,15 @@ becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
 
+## 0.8.0 — 2026-10-06
+
+- New Lighting page: put one colour on your cooler, motherboard, keyboard and mice at once, like SignalRGB
+- Restore puts every device back to the lighting it had before you synced them
+- When a new version is out, a button next to the light/dark switch says so; click it to update from Settings
+- RigDeck now also looks for updates every few hours while it's open, not only when it starts
+- Settings files: export all your device settings (DPI, polling rate, colours, fan curve, key actuation…) to one file, and import a file to set everything at once
+- An imported file is checked first; any mistake is pointed out and nothing changes until it's fixed
+
 ## 0.7.1 — 2026-10-05
 
 - Resources > CPU can now show a separate graph for each logical processor, like Task Manager
