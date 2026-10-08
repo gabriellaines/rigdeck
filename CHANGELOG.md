@@ -7,6 +7,12 @@ becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
 
+## 0.8.1 — 2026-10-08
+
+- The Lighting page now updates by itself when you plug a device in or unplug it
+- While lighting is synced, devices you connect later get the colour automatically (the ones you switched off are left alone)
+- The left menu now scrolls, so every page stays reachable in a small window
+
 ## 0.8.0 — 2026-10-06
 
 - New Lighting page: put one colour on your cooler, motherboard, keyboard and mice at once, like SignalRGB
