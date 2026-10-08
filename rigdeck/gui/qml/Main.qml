@@ -148,36 +148,53 @@ ApplicationWindow {
                     anchors.margins: 8
                     anchors.rightMargin: 9
                     spacing: 4
-                    Repeater {
-                        model: LiveModel { values: root.sidebarPages }
+                    // The entries scroll when the window is too short to show them all;
+                    // Settings stays pinned below.
+                    ScrollView {
+                        id: navScroll
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        contentWidth: availableWidth
+                        Component.onCompleted: contentItem.contentHeight = Qt.binding(() => navCol.implicitHeight)
                         ColumnLayout {
-                            Layout.fillWidth: true
+                            id: navCol
+                            width: navScroll.availableWidth
                             spacing: 4
-                            readonly property string section: root.sectionOf(modelData)
-                            readonly property bool firstPeripheral: section !== ""
-                                && (index === 0 || root.sectionOf(root.sidebarPages[index - 1]) !== section)
-                            Label {
-                                visible: parent.firstPeripheral && !root.compact
-                                text: parent.section
-                                color: theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold
-                                Layout.leftMargin: 12; Layout.topMargin: 10
-                            }
-                            Rectangle {  // compact sidebar: a divider instead of the heading
-                                visible: parent.firstPeripheral && root.compact
-                                Layout.fillWidth: true; implicitHeight: 1; color: theme.border
-                                Layout.topMargin: 6; Layout.bottomMargin: 6
-                            }
-                            NavItem {
-                                iconName: modelData.icon
-                                label: modelData.title
-                                compact: root.compact
-                                current: root.currentId === modelData.id
-                                onClicked: root.navigate(modelData.id)
+                            Repeater {
+                                model: LiveModel { values: root.sidebarPages }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+                                    readonly property string section: root.sectionOf(modelData)
+                                    readonly property bool firstPeripheral: section !== ""
+                                        && (index === 0 || root.sectionOf(root.sidebarPages[index - 1]) !== section)
+                                    Label {
+                                        visible: parent.firstPeripheral && !root.compact
+                                        text: parent.section
+                                        color: theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold
+                                        Layout.leftMargin: 12; Layout.topMargin: 10
+                                    }
+                                    Rectangle {  // compact sidebar: a divider instead of the heading
+                                        visible: parent.firstPeripheral && root.compact
+                                        Layout.fillWidth: true; implicitHeight: 1; color: theme.border
+                                        Layout.topMargin: 6; Layout.bottomMargin: 6
+                                    }
+                                    NavItem {
+                                        iconName: modelData.icon
+                                        label: modelData.title
+                                        compact: root.compact
+                                        current: root.currentId === modelData.id
+                                        onClicked: root.navigate(modelData.id)
+                                    }
+                                }
                             }
                         }
                     }
-                    Item { Layout.fillHeight: true }
-                    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: theme.border }
+                    Rectangle {
+                        Layout.fillWidth: true; implicitHeight: 1; color: theme.border
+                        Layout.topMargin: 4
+                    }
                     NavItem {
                         iconName: "settings"
                         label: "Settings"
