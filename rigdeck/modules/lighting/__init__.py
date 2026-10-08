@@ -7,11 +7,16 @@ lighting from before the sync. Each device type is a `Target`.
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
+import logging
 import os
 
 from ... import config, servicectl
-from ..base import Module, RigdeckError
+from ..base import Module, RigdeckError, ServiceTask
+
+log = logging.getLogger("rigdeck.lighting")
 
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
                      "rigdeck", "lighting-sync.json")
@@ -197,7 +202,7 @@ def _load() -> dict:
 
 
 def _save(state: dict | None):
-    if not state:
+    if not state or not state.get("snapshots"):
         try:
             os.remove(STATE)
         except FileNotFoundError:
@@ -209,25 +214,28 @@ def _save(state: dict | None):
     os.replace(STATE + ".tmp", STATE)
 
 
+@contextlib.contextmanager
+def _locked():
+    """The app, the CLI and the service all change the sync state: one at a time."""
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE + ".lock", "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        yield
+
+
 def status() -> dict:
-    """{active, color, devices: [{id, name, present, synced}]}."""
+    """{active, color, skip: [ids left out], devices: [{id, name, present, synced}]}."""
     st = _load()
     synced = st.get("snapshots", {})
-    return {"active": bool(synced), "color": st.get("color", ""),
+    return {"active": bool(synced), "color": st.get("color", ""), "skip": st.get("skip", []),
             "devices": [{"id": t.id, "name": t.name, "present": t.present(), "synced": t.id in synced}
                         for t in TARGETS]}
 
 
-def sync(color: str, only: list[str] | None = None) -> dict[str, str]:
-    """Set `color` on every present device (or those in `only`). Returns {device id: problem} for
-    the ones that failed or only partly changed; every device that changed keeps a snapshot."""
-    color = _color(color)
-    st = _load()
-    snaps = st.get("snapshots", {})
+def _put(targets: list[Target], color: str, snaps: dict) -> dict[str, str]:
+    """Set `color` on `targets`, snapshotting the ones not synced yet. Returns {id: problem}."""
     errors = {}
-    for t in TARGETS:
-        if (only and t.id not in only) or not t.present():
-            continue
+    for t in targets:
         new = t.id not in snaps                   # keep the lighting from before the first sync
         try:
             if new:
@@ -239,30 +247,85 @@ def sync(color: str, only: list[str] | None = None) -> dict[str, str]:
             errors[t.id] = str(e)
             if new:                               # nothing changed: nothing to restore
                 snaps.pop(t.id, None)
-    _save({"color": color, "snapshots": snaps} if snaps else None)
+    return errors
+
+
+def sync(color: str, only: list[str] | None = None) -> dict[str, str]:
+    """Set `color` on every present device (or those in `only`). Returns {device id: problem} for
+    the ones that failed or only partly changed; every device that changed keeps a snapshot.
+    Present devices left out of `only` are remembered, so they aren't synced when they reconnect;
+    devices that connect later join the sync (see join_new)."""
+    color = _color(color)
+    with _locked():
+        st = _load()
+        snaps = st.get("snapshots", {})
+        present = [t for t in TARGETS if t.present()]
+        chosen = [t for t in present if not only or t.id in only]
+        skip = set(st.get("skip", [])) - {t.id for t in chosen} | {t.id for t in present if t not in chosen}
+        errors = _put(chosen, color, snaps)
+        _save({"color": color, "snapshots": snaps, "skip": sorted(skip)})
+    return errors
+
+
+def join_new(wait: set[str] = frozenset()) -> dict[str, str]:
+    """While a sync is on: give the sync colour to devices that connected since (unless they were
+    left out, or are in `wait`). Returns {device id: problem} for those that couldn't be changed yet."""
+    with _locked():
+        st = _load()
+        snaps = st.get("snapshots", {})
+        if not snaps:
+            return {}
+        new = [t for t in TARGETS if t.id not in snaps and t.id not in st.get("skip", []) and t.id not in wait
+               and t.present()]
+        if not new:
+            return {}
+        errors = _put(new, st["color"], snaps)
+        _save({**st, "snapshots": snaps})
+    for t in new:
+        if t.id not in errors:
+            log.info("%s connected: synced to #%s", t.name, st["color"])
     return errors
 
 
 def restore() -> tuple[dict[str, str], list[str]]:
     """Put every synced device's lighting back. Returns ({device id: error}, notes). Devices that
     failed (e.g. unplugged) keep their snapshot, so restoring again later still works."""
-    st = _load()
-    snaps = st.get("snapshots", {})
-    errors, notes, left = {}, [], {}
-    for t in TARGETS:
-        if t.id not in snaps:
-            continue
-        try:
-            if not t.present():
-                raise RigdeckError(f"{t.name.lower()} not connected")
-            note = t.restore(snaps[t.id])
-            if note:
-                notes.append(note)
-        except Exception as e:
-            errors[t.id] = str(e)
-            left[t.id] = snaps[t.id]
-    _save({**st, "snapshots": left} if left else None)
+    with _locked():
+        st = _load()
+        snaps = st.get("snapshots", {})
+        errors, notes, left = {}, [], {}
+        for t in TARGETS:
+            if t.id not in snaps:
+                continue
+            try:
+                if not t.present():
+                    raise RigdeckError(f"{t.name.lower()} not connected")
+                note = t.restore(snaps[t.id])
+                if note:
+                    notes.append(note)
+            except Exception as e:
+                errors[t.id] = str(e)
+                left[t.id] = snaps[t.id]
+        _save({**st, "snapshots": left})
     return errors, notes
+
+
+class LightingTask(ServiceTask):
+    """Gives the sync colour to devices plugged in (or woken up) while a sync is on."""
+    POLL, RETRY = 3.0, 60.0          # a sleeping mouse isn't asked every few seconds
+
+    def __init__(self):
+        self.retry_at: dict[str, float] = {}
+
+    def tick(self, now: float) -> float:
+        if not os.path.exists(STATE):              # no sync on: nothing to do
+            self.retry_at.clear()
+            return self.POLL
+        self.retry_at = {i: t for i, t in self.retry_at.items() if now < t}
+        for tid, e in join_new(set(self.retry_at)).items():
+            log.info("%s: %s (trying again in a minute)", tid, e)
+            self.retry_at[tid] = now + self.RETRY
+        return self.POLL
 
 
 # ---- CLI ------------------------------------------------------------------------------
@@ -304,6 +367,9 @@ class LightingModule(Module):
 
     def detect(self) -> bool:
         return any(t.present() for t in TARGETS)
+
+    def service_task(self):
+        return LightingTask()
 
     def add_cli(self, sub):
         p = sub.add_parser("lighting", help="one colour on every device with lighting, and back")

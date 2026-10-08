@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from ...gui.activity import AdaptiveTimer
 from ...gui.bridge import run_async
 from . import TARGETS, restore, status, sync
 
@@ -18,14 +19,26 @@ class LightingBackend(QObject):
         self._ctx = ctx
         self._status = {"active": False, "color": "", "devices": []}
         self._busy = False
+        self._reading = False
+        # plugging a device in (or the service syncing it) shows up while the page is open
+        AdaptiveTimer(self, self.refresh, page="lighting", page_ms=2000)
         self.refresh()
 
     @Slot()
     def refresh(self):
+        if self._reading:
+            return
+        self._reading = True
+
         def got(s):
-            self._status = s
-            self.changed.emit()
-        run_async(status, got)
+            self._reading = False
+            if s != self._status:
+                self._status = s
+                self.changed.emit()
+
+        def failed(_e):
+            self._reading = False
+        run_async(status, got, failed)
 
     status = Property("QVariantMap", lambda self: self._status, notify=changed)
     busy = Property(bool, lambda self: self._busy, notify=changed)

@@ -13,7 +13,8 @@ PageScroll {
     readonly property var present: devices.filter(d => d.present)
     property string color: ""                 // picked, not applied yet ("" = the synced one or a default)
     readonly property string shownColor: color || st.color || "00c8ff"
-    property var skipped: []                  // device ids left out of the sync
+    property var edits: null                  // device ids switched off here, until the next sync
+    readonly property var skipped: edits !== null ? edits : (st.skip || [])   // else what the last sync left out
 
     Connections { target: lighting; function onToast(m) { root.showToast(m) } }
 
@@ -55,6 +56,7 @@ PageScroll {
                 onClicked: {
                     lighting.sync(page.shownColor, page.present.map(d => d.id).filter(id => page.skipped.indexOf(id) < 0))
                     page.color = ""
+                    page.edits = null
                 }
             }
             Button {
@@ -80,7 +82,11 @@ PageScroll {
             model: LiveModel { values: page.present }
             SettingRow {
                 title: modelData.name
-                description: modelData.synced ? "Synced — its own lighting is remembered" : "Its own lighting"
+                description: modelData.synced ? "Synced — its own lighting is remembered"
+                             : page.st.active && page.skipped.indexOf(modelData.id) < 0
+                               ? (appState.serviceState === "active" ? "Getting the sync colour…"
+                                                                      : "Not synced yet — press Apply to give it the colour")
+                             : page.st.active ? "Left out of the sync" : "Its own lighting"
                 Rectangle {
                     visible: modelData.synced
                     implicitWidth: 18; implicitHeight: 18; radius: 9
@@ -90,8 +96,8 @@ PageScroll {
                 Toggle {
                     checked: page.skipped.indexOf(modelData.id) < 0
                     Accessible.name: "Include " + modelData.name
-                    onToggled: page.skipped = checked ? page.skipped.filter(id => id !== modelData.id)
-                                                      : page.skipped.concat([modelData.id])
+                    onToggled: page.edits = checked ? page.skipped.filter(id => id !== modelData.id)
+                                                    : page.skipped.concat([modelData.id])
                 }
             }
         }
@@ -99,7 +105,8 @@ PageScroll {
 
     Banner {
         tone: "info"
-        text: "Restore puts every device back to the lighting it had before the first sync, even after a restart. "
-              + "The mouse colour is stored on the mouse; the keyboard and cooler colours are kept by the background service."
+        text: "While a sync is on, devices you plug in later get the colour too (switched-off ones are left alone). "
+              + "Restore puts every device back to the lighting it had before it was synced, even after a restart. "
+              + "The background service does this and keeps the keyboard and cooler colours on."
     }
 }
