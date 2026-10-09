@@ -7,6 +7,10 @@ becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
 
+## 0.8.3 — 2026-10-09
+
+- Settings can now import a custom theme from a JSON file, and export a template to start one from the current theme's colors
+
 ## 0.8.2 — 2026-10-09
 
 - Settings now offers Dracula, One Dark and Solarized Light themes, alongside the existing light and dark ones
