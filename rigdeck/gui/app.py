@@ -14,6 +14,7 @@ from ..modules import MODULES
 from . import bridge
 from .appstate import AppState, prefs
 from .bluez import BluezWatcher
+from .customtheme import CustomThemes
 from .resources import ResourceMonitor
 from .setupfile import SettingsFile
 from .icons import IconProvider
@@ -80,6 +81,9 @@ def run(argv: list[str]) -> int:
     system = SystemBackend()
     keep.append(system)
     ctx.setContextProperty("theme", theme)
+    custom_themes = CustomThemes(theme)      # import / save-template / remove a person's own themes
+    keep.append(custom_themes)
+    ctx.setContextProperty("customThemes", custom_themes)
     ctx.setContextProperty("system", system)
     monitor = ResourceMonitor()  # a minute of CPU / memory / disk / network / GPU history
     keep.append(monitor)
