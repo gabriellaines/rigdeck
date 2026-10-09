@@ -20,9 +20,10 @@ PageScroll {
             Layout.fillWidth: true
             Label { text: "Theme"; color: theme.text; font.pixelSize: 14; Layout.fillWidth: true }
             Segmented {
-                model: ["System", "Light", "Dark"]
-                currentIndex: ["system", "light", "dark"].indexOf(theme.mode)
-                onActivated: (i) => appState.setThemeMode(["system", "light", "dark"][i])
+                readonly property var values: ["system"].concat(theme.themes.map(t => t.value))
+                model: ["System"].concat(theme.themes.map(t => t.label))
+                currentIndex: values.indexOf(theme.mode)
+                onActivated: (i) => appState.setThemeMode(values[i])
             }
         }
         RowLayout {
