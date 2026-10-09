@@ -7,6 +7,10 @@ becomes the GitHub release notes, which RigDeck shows in its update dialog.
 
 ## Unreleased
 
+## 0.8.2 — 2026-10-09
+
+- Settings now offers Dracula, One Dark and Solarized Light themes, alongside the existing light and dark ones
+
 ## 0.8.1 — 2026-10-08
 
 - The Lighting page now updates by itself when you plug a device in or unplug it
