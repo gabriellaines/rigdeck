@@ -12,6 +12,7 @@ PageScroll {
 
     PageHeader { title: "Settings"; subtitle: "RigDeck " + appState.version }
     Connections { target: settingsFile; function onToast(m) { root.showToast(m) } }
+    Connections { target: customThemes; function onToast(m) { root.showToast(m) } }
 
     Panel {
         Layout.fillWidth: true
@@ -25,6 +26,67 @@ PageScroll {
                 currentIndex: values.indexOf(theme.mode)
                 onActivated: (i) => appState.setThemeMode(values[i])
             }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: theme.customThemes.length > 0
+            spacing: 4
+            Label { text: "Your themes"; color: theme.text; font.pixelSize: 14 }
+            Repeater {
+                model: LiveModel { values: theme.customThemes }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Label { text: modelData.name; color: theme.muted; font.pixelSize: 13; Layout.fillWidth: true }
+                    IconButton {
+                        iconName: "trash-2"
+                        tip: "Remove this theme"
+                        onClicked: customThemes.remove(modelData.slug)
+                    }
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Button {
+                text: "Import theme file…"
+                icon.source: "image://icons/upload/" + theme.text.toString().slice(-6)
+                enabled: customThemes.busy === ""
+                onClicked: importThemeDialog.open()
+            }
+            Button {
+                text: "Export theme template…"
+                icon.source: "image://icons/download/" + theme.text.toString().slice(-6)
+                enabled: customThemes.busy === ""
+                onClicked: exportThemeDialog.open()
+            }
+            BusyIndicator { running: customThemes.busy !== ""; visible: running; implicitWidth: 28; implicitHeight: 28 }
+            Label { text: customThemes.busy; color: theme.muted; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+        }
+        Label {
+            visible: customThemes.error !== ""
+            text: customThemes.error
+            color: theme.error; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
+        }
+        ActionLink {
+            label: "How to write a theme file"
+            onClicked: appState.openUrl(appState.repoUrl + "/blob/main/docs/custom-themes.md")
+        }
+        FileDialog {
+            id: importThemeDialog
+            title: "Import a RigDeck theme file"
+            nameFilters: ["Theme files (*.json)", "All files (*)"]
+            onAccepted: customThemes.importFile(selectedFile.toString())
+        }
+        FileDialog {
+            id: exportThemeDialog
+            title: "Save a theme template to edit"
+            fileMode: FileDialog.SaveFile
+            defaultSuffix: "json"
+            currentFile: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/my-theme.json"
+            nameFilters: ["Theme files (*.json)"]
+            onAccepted: customThemes.exportTemplate(selectedFile.toString())
         }
         RowLayout {
             Layout.fillWidth: true

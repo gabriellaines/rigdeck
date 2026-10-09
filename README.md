@@ -1,7 +1,8 @@
 # rigdeck
 
 A lightweight control panel for PC hardware on Linux — as a **command-line tool** and a
-**Qt 6 / QML desktop app** in a calm, Breeze-style design (dark and light). Use whichever you like.
+**Qt 6 / QML desktop app** in a calm, Breeze-style design (dark, light, Dracula, One Dark,
+Solarized Light, or [your own theme](docs/custom-themes.md)). Use whichever you like.
 
 Built because vendor tools (GIGABYTE Control Center, …) are Windows-only, heavy, and
 the only way to control some hardware.
